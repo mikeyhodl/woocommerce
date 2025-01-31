@@ -6,6 +6,8 @@
  * @version 2.1.0
  */
 
+use Automattic\WooCommerce\Enums\ProductType;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -72,7 +74,7 @@ function wc_get_attribute_taxonomies() {
 	 */
 	$raw_attribute_taxonomies = (array) array_filter( apply_filters( 'woocommerce_attribute_taxonomies', $raw_attribute_taxonomies ) );
 
-	// Index by ID for easer lookups.
+	// Index by ID for easier lookups.
 	$attribute_taxonomies = array();
 
 	foreach ( $raw_attribute_taxonomies as $result ) {
@@ -189,7 +191,7 @@ function wc_attribute_label( $name, $product = '' ) {
 		$all_labels = wc_get_attribute_taxonomy_labels();
 		$label      = isset( $all_labels[ $slug ] ) ? $all_labels[ $slug ] : $slug;
 	} elseif ( $product ) {
-		if ( $product->is_type( 'variation' ) ) {
+		if ( $product->is_type( ProductType::VARIATION ) ) {
 			$product = wc_get_product( $product->get_parent_id() );
 		}
 		$attributes = array();
@@ -483,7 +485,7 @@ function wc_create_attribute( $args ) {
 	}
 
 	// Validate slug.
-	if ( strlen( $slug ) >= 28 ) {
+	if ( strlen( $slug ) > 28 ) {
 		/* translators: %s: attribute slug */
 		return new WP_Error( 'invalid_product_attribute_slug_too_long', sprintf( __( 'Slug "%s" is too long (28 characters max). Shorten it, please.', 'woocommerce' ), $slug ), array( 'status' => 400 ) );
 	} elseif ( wc_check_if_attribute_name_is_reserved( $slug ) ) {
@@ -569,7 +571,7 @@ function wc_create_attribute( $args ) {
 			// Update taxonomy ordering term meta.
 			$wpdb->update(
 				$wpdb->termmeta,
-				array( 'meta_key' => 'order_pa_' . sanitize_title( $data['attribute_name'] ) ), // WPCS: slow query ok.
+				array( 'meta_key' => 'order' ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 				array( 'meta_key' => 'order_pa_' . sanitize_title( $old_slug ) ) // WPCS: slow query ok.
 			);
 
@@ -632,6 +634,16 @@ function wc_update_attribute( $id, $args ) {
 	$attribute = wc_get_attribute( $id );
 
 	$args['id'] = $attribute ? $attribute->id : 0;
+
+	// When updating an existing attribute, populate any undefined args with the existing value.
+	// This prevents those values from being reset to their respective defaults.
+	if ( $args['id'] ) {
+		$args['has_archives'] = $args['has_archives'] ?? $attribute->has_archives;
+		$args['name']         = $args['name'] ?? $attribute->name;
+		$args['order_by']     = $args['order_by'] ?? $attribute->order_by;
+		$args['slug']         = $args['slug'] ?? $attribute->slug;
+		$args['type']         = $args['type'] ?? $attribute->type;
+	}
 
 	if ( $args['id'] && empty( $args['name'] ) ) {
 		$args['name'] = $attribute->name;

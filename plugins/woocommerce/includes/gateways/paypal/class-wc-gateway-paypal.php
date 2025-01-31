@@ -22,6 +22,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WC_Gateway_Paypal extends WC_Payment_Gateway {
 
 	/**
+	 * Unique ID for this gateway.
+	 *
+	 * @var string
+	 */
+	const ID = 'paypal';
+
+	/**
 	 * Whether or not logging is enabled
 	 *
 	 * @var bool
@@ -36,10 +43,46 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 	public static $log = false;
 
 	/**
+	 * Whether the test mode is enabled.
+	 *
+	 * @var bool
+	 */
+	public $testmode;
+
+	/**
+	 * Whether the debug mode is enabled.
+	 *
+	 * @var bool
+	 */
+	public $debug;
+
+	/**
+	 * Email address to send payments to.
+	 *
+	 * @var string
+	 */
+	public $email;
+
+	/**
+	 * Receiver email.
+	 *
+	 * @var string
+	 */
+	public $receiver_email;
+
+	/**
+	 * Identity token.
+	 *
+	 * @var string
+	 */
+	public $identity_token;
+
+
+	/**
 	 * Constructor for the gateway.
 	 */
 	public function __construct() {
-		$this->id                = 'paypal';
+		$this->id                = self::ID;
 		$this->has_fields        = false;
 		$this->order_button_text = __( 'Proceed to PayPal', 'woocommerce' );
 		$this->method_title      = __( 'PayPal Standard', 'woocommerce' );
@@ -84,7 +127,8 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 
 			if ( $this->identity_token ) {
 				include_once dirname( __FILE__ ) . '/includes/class-wc-gateway-paypal-pdt-handler.php';
-				new WC_Gateway_Paypal_PDT_Handler( $this->testmode, $this->identity_token );
+				$pdt_handler = new WC_Gateway_Paypal_PDT_Handler( $this->testmode, $this->identity_token );
+				$pdt_handler->set_receiver_email( $this->receiver_email );
 			}
 		}
 
@@ -118,7 +162,7 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 			if ( empty( self::$log ) ) {
 				self::$log = wc_get_logger();
 			}
-			self::$log->log( $level, $message, array( 'source' => 'paypal' ) );
+			self::$log->log( $level, $message, array( 'source' => self::ID ) );
 		}
 	}
 
@@ -136,7 +180,7 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 			if ( empty( self::$log ) ) {
 				self::$log = wc_get_logger();
 			}
-			self::$log->clear( 'paypal' );
+			self::$log->clear( self::ID );
 		}
 
 		return $saved;
@@ -381,11 +425,11 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 		$result = WC_Gateway_Paypal_API_Handler::refund_transaction( $order, $amount, $reason );
 
 		if ( is_wp_error( $result ) ) {
-			$this->log( 'Refund Failed: ' . $result->get_error_message(), 'error' );
+			static::log( 'Refund Failed: ' . $result->get_error_message(), 'error' );
 			return new WP_Error( 'error', $result->get_error_message() );
 		}
 
-		$this->log( 'Refund Result: ' . wc_print_r( $result, true ) );
+		static::log( 'Refund Result: ' . wc_print_r( $result, true ) );
 
 		switch ( strtolower( $result->ACK ) ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 			case 'success':
@@ -408,18 +452,18 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 	public function capture_payment( $order_id ) {
 		$order = wc_get_order( $order_id );
 
-		if ( 'paypal' === $order->get_payment_method() && 'pending' === $order->get_meta( '_paypal_status', true ) && $order->get_transaction_id() ) {
+		if ( self::ID === $order->get_payment_method() && 'pending' === $order->get_meta( '_paypal_status', true ) && $order->get_transaction_id() ) {
 			$this->init_api();
 			$result = WC_Gateway_Paypal_API_Handler::do_capture( $order );
 
 			if ( is_wp_error( $result ) ) {
-				$this->log( 'Capture Failed: ' . $result->get_error_message(), 'error' );
+				static::log( 'Capture Failed: ' . $result->get_error_message(), 'error' );
 				/* translators: %s: Paypal gateway error message */
 				$order->add_order_note( sprintf( __( 'Payment could not be captured: %s', 'woocommerce' ), $result->get_error_message() ) );
 				return;
 			}
 
-			$this->log( 'Capture Result: ' . wc_print_r( $result, true ) );
+			static::log( 'Capture Result: ' . wc_print_r( $result, true ) );
 
 			// phpcs:disable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 			if ( ! empty( $result->PAYMENTSTATUS ) ) {
@@ -427,8 +471,9 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 					case 'Completed':
 						/* translators: 1: Amount, 2: Authorization ID, 3: Transaction ID */
 						$order->add_order_note( sprintf( __( 'Payment of %1$s was captured - Auth ID: %2$s, Transaction ID: %3$s', 'woocommerce' ), $result->AMT, $result->AUTHORIZATIONID, $result->TRANSACTIONID ) );
-						update_post_meta( $order->get_id(), '_paypal_status', $result->PAYMENTSTATUS );
-						update_post_meta( $order->get_id(), '_transaction_id', $result->TRANSACTIONID );
+						$order->update_meta_data( '_paypal_status', $result->PAYMENTSTATUS );
+						$order->set_transaction_id( $result->TRANSACTIONID );
+						$order->save();
 						break;
 					default:
 						/* translators: 1: Authorization ID, 2: Payment status */
@@ -489,27 +534,32 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 		$should_load = $this->get_option( $option_key );
 
 		if ( '' === $should_load ) {
-
-			// New installs without PayPal Standard enabled don't load it.
-			if ( 'no' === $this->enabled && WC_Install::is_new_install() ) {
-				$should_load = false;
-			} else {
-				$should_load = true;
-			}
+			// Set default `_should_load` to 'yes' on existing stores with PayPal Standard enabled or with existing PayPal Standard orders.
+			$should_load = 'yes' === $this->enabled || $this->has_paypal_orders();
 
 			$this->update_option( $option_key, wc_bool_to_string( $should_load ) );
 		} else {
-			$should_load = wc_string_to_bool( $should_load );
+			// Enabled always takes precedence over the option.
+			$should_load = wc_string_to_bool( $this->enabled ) || wc_string_to_bool( $should_load );
 		}
 
-		/**
-		 * Allow third-parties to filter whether PayPal Standard should be loaded or not.
-		 *
-		 * @since 5.5.0
-		 *
-		 * @param bool              $should_load Whether PayPal Standard should be loaded.
-		 * @param WC_Gateway_Paypal $this        The WC_Gateway_Paypal instance.
-		 */
-		return apply_filters( 'woocommerce_should_load_paypal_standard', $should_load, $this );
+		return $should_load;
+	}
+
+	/**
+	 * Checks if the store has at least one PayPal Standand order.
+	 *
+	 * @return bool
+	 */
+	public function has_paypal_orders() {
+		$paypal_orders = wc_get_orders(
+			array(
+				'limit'          => 1,
+				'return'         => 'ids',
+				'payment_method' => self::ID,
+			)
+		);
+
+		return is_countable( $paypal_orders ) ? 1 === count( $paypal_orders ) : false;
 	}
 }

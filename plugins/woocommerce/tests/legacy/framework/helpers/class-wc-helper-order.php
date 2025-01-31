@@ -5,6 +5,8 @@
  * @package WooCommerce\Tests
  */
 
+use Automattic\WooCommerce\Enums\OrderStatus;
+
 /**
  * Class WC_Helper_Order.
  *
@@ -40,10 +42,11 @@ class WC_Helper_Order {
 	 *
 	 * @param int        $customer_id The ID of the customer the order is for.
 	 * @param WC_Product $product The product to add to the order.
+	 * @param array      $order_data Order data to be passed to wc_create_order.
 	 *
 	 * @return WC_Order
 	 */
-	public static function create_order( $customer_id = 1, $product = null ) {
+	public static function create_order( $customer_id = 1, $product = null, $order_data = array() ) {
 
 		if ( ! is_a( $product, 'WC_Product' ) ) {
 			$product = WC_Helper_Product::create_simple_product();
@@ -51,12 +54,13 @@ class WC_Helper_Order {
 
 		WC_Helper_Shipping::create_simple_flat_rate();
 
-		$order_data = array(
-			'status'        => 'pending',
+		$default_order_data = array(
+			'status'        => OrderStatus::PENDING,
 			'customer_id'   => $customer_id,
 			'customer_note' => '',
 			'total'         => '',
 		);
+		$order_data         = wp_parse_args( $order_data, $default_order_data );
 
 		$_SERVER['REMOTE_ADDR'] = '127.0.0.1'; // Required, else wc_create_order throws an exception.
 		$order                  = wc_create_order( $order_data );
@@ -106,7 +110,7 @@ class WC_Helper_Order {
 
 		// Set payment gateway.
 		$payment_gateways = WC()->payment_gateways->payment_gateways();
-		$order->set_payment_method( $payment_gateways['bacs'] );
+		$order->set_payment_method( $payment_gateways[ WC_Gateway_BACS::ID ] );
 
 		// Set totals.
 		$order->set_shipping_total( 10 );

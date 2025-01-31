@@ -6,10 +6,22 @@
  * @since 3.2.0
  */
 
+use Automattic\WooCommerce\Internal\CostOfGoodsSold\CogsAwareUnitTestSuiteTrait;
+
 /**
  * Order Item Product unit tests.
  */
 class WC_Tests_Order_Item_Product extends WC_Unit_Test_Case {
+
+	use CogsAwareUnitTestSuiteTrait;
+
+	/**
+	 * Runs after each test.
+	 */
+	public function tearDown(): void {
+		parent::tearDown();
+		$this->disable_cogs_feature();
+	}
 
 	/**
 	 * Test generic setters and getters for WC_Order_Item_Product.
@@ -43,11 +55,34 @@ class WC_Tests_Order_Item_Product extends WC_Unit_Test_Case {
 		$product_item->set_total( '10.00' );
 		$this->assertEquals( '10.00', $product_item->get_total() );
 
+		$product_item->set_total( '' );
+		$this->assertEquals( '0.00', $product_item->get_total() );
+
 		$product_item->set_subtotal_tax( '0.50' );
 		$this->assertEquals( '0.50', $product_item->get_subtotal_tax() );
 
 		$product_item->set_total_tax( '0.30' );
 		$this->assertEquals( '0.30', $product_item->get_total_tax() );
+	}
+
+	/**
+	 * Test get item shipping total
+	 */
+	public function test_get_item_shipping_total() {
+		$order    = WC_Helper_Order::create_order_with_fees_and_shipping();
+		$order_id = $order->get_id();
+
+		array_values( $order->get_items( 'shipping' ) )[0]->set_total( '10.17' );
+		$order->save();
+
+		$order = wc_get_order( $order_id );
+		$this->assertEquals( '10.17', $order->get_line_total( array_values( $order->get_items( 'shipping' ) )[0], true ) );
+
+		array_values( $order->get_items( 'shipping' ) )[0]->set_total( '' );
+		$order->save();
+
+		$order = wc_get_order( $order_id );
+		$this->assertEquals( '0.00', $order->get_line_total( array_values( $order->get_items( 'shipping' ) )[0], true ) );
 	}
 
 	/**
@@ -130,7 +165,7 @@ class WC_Tests_Order_Item_Product extends WC_Unit_Test_Case {
 		$product_item->set_order_id( $order->get_id() );
 
 		$expected_regex = '/download_file=.*&order=wc_order_.*&email=test%40woocommerce.com&key=100/';
-		$this->assertRegexp( $expected_regex, $product_item->get_item_download_url( 100 ) );
+		$this->assertMatchesRegularExpression( $expected_regex, $product_item->get_item_download_url( 100 ) );
 	}
 
 	/**
@@ -213,6 +248,85 @@ class WC_Tests_Order_Item_Product extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * Test the get_formatted_meta_data method.
+	 *
+	 * @since x.x.x
+	 */
+	public function test_get_all_formatted_meta_data() {
+		$parent_product = new WC_Product_Variable();
+		$parent_product->set_name( 'Test Parent' );
+		$parent_product->save();
+
+		$variation_product = new WC_Product_Variation();
+		$variation_product->set_name( 'Test Variation' );
+		$variation_product->set_parent_id( $parent_product->get_id() );
+		$variation_product->set_attributes(
+			array(
+				'color' => 'Green',
+				'size'  => 'Large',
+			)
+		);
+		$variation_product->save();
+
+		$product_item = new WC_Order_Item_Product();
+		$product_item->set_product( $variation_product );
+		$product_item->add_meta_data( 'testkey', 'testval', true );
+		$product_item->save();
+
+		// Test with show_all set to default.
+		$formatted          = $product_item->get_all_formatted_meta_data( '_' );
+		$formatted_as_array = array();
+		foreach ( $formatted as $f ) {
+			$formatted_as_array[] = (array) $f;
+		}
+		$this->assertEquals(
+			array(
+				array(
+					'key'           => 'color',
+					'value'         => 'Green',
+					'display_key'   => 'color',
+					'display_value' => "<p>Green</p>\n",
+				),
+				array(
+					'key'           => 'size',
+					'value'         => 'Large',
+					'display_key'   => 'size',
+					'display_value' => "<p>Large</p>\n",
+				),
+				array(
+					'key'           => 'testkey',
+					'value'         => 'testval',
+					'display_key'   => 'testkey',
+					'display_value' => "<p>testval</p>\n",
+				),
+			),
+			$formatted_as_array
+		);
+
+		// Test with show_all off.
+		$formatted          = $product_item->get_all_formatted_meta_data( '_', false );
+		$formatted_as_array = array();
+		foreach ( $formatted as $f ) {
+			$formatted_as_array[] = (array) $f;
+		}
+		$this->assertEquals(
+			array(
+				array(
+					'key'           => 'testkey',
+					'value'         => 'testval',
+					'display_key'   => 'testkey',
+					'display_value' => "<p>testval</p>\n",
+				),
+			),
+			$formatted_as_array
+		);
+
+		// Test with an exclude prefix. Should exclude everything since they're either in the title or in the exclude prefix.
+		$formatted = $product_item->get_all_formatted_meta_data( 'test', false );
+		$this->assertEmpty( $formatted );
+	}
+
+	/**
 	 * Test the Array Access methods.
 	 *
 	 * @since 3.3.0
@@ -279,5 +393,46 @@ class WC_Tests_Order_Item_Product extends WC_Unit_Test_Case {
 		$this->assertFalse( $item->meta_exists( 'foo' ) );
 		$item->add_meta_data( 'foo', 'bar' );
 		$this->assertEquals( 'bar', $item->get_meta( 'foo' ) );
+	}
+
+	/**
+	 * @testdox Product order items manage a Cost of Goods Sold value.
+	 */
+	public function test_has_cogs() {
+		$product_item = new WC_Order_Item_Product();
+
+		$this->assertTrue( $product_item->has_cogs() );
+	}
+
+	/**
+	 * @testdox The Cost of Goods Sold value is calculated as the product cost times the quantity.
+	 */
+	public function test_cogs_is_calculated_as_product_cogs_times_quantity() {
+		$this->enable_cogs_feature();
+
+		$product = new WC_Product_Simple();
+		$product->set_cogs_value( 12.34 );
+		$product->save();
+
+		$product_item = new WC_Order_Item_Product();
+		$product_item->set_product( $product );
+		$product_item->set_quantity( 3 );
+		$product_item->save();
+
+		$this->assertTrue( $product_item->calculate_cogs_value() );
+		$this->assertEquals( 12.34 * 3, $product_item->get_cogs_value() );
+	}
+
+	/**
+	 * @testdox The Cost of Goods Sold value calculation fails if the product can't be retrieved, and then the current value isn't modified.
+	 */
+	public function test_cogs_calculation_fails_if_product_cant_be_retrieved() {
+		$this->enable_cogs_feature();
+
+		$product_item = new WC_Order_Item_Product();
+		$product_item->set_cogs_value( 12.34 );
+
+		$this->assertFalse( $product_item->calculate_cogs_value() );
+		$this->assertEquals( 12.34, $product_item->get_cogs_value() );
 	}
 }

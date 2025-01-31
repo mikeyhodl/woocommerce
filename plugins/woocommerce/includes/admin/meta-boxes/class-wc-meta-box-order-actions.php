@@ -8,6 +8,10 @@
  * @version     2.1.0
  */
 
+use Automattic\WooCommerce\Enums\OrderStatus;
+use Automattic\WooCommerce\Internal\Admin\Orders\PageController;
+use Automattic\WooCommerce\Utilities\OrderUtil;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
@@ -20,23 +24,28 @@ class WC_Meta_Box_Order_Actions {
 	/**
 	 * Output the metabox.
 	 *
-	 * @param WP_Post $post Post object.
+	 * @param WP_Post|WC_Order $post Post or order object.
 	 */
 	public static function output( $post ) {
 		global $theorder;
 
-		// This is used by some callbacks attached to hooks such as woocommerce_order_actions which rely on the global to determine if actions should be displayed for certain orders.
-		// Avoid using this global with the `woocommerce_order_actions` filter, instead use the $order filter arg.
-		if ( ! is_object( $theorder ) ) {
-			$theorder = wc_get_order( $post->ID );
-		}
+		OrderUtil::init_theorder_object( $post );
+		$order = $theorder;
 
-		$theorder = $theorder instanceof WC_Order ? $theorder : null;
-		$order_actions = self::get_available_order_actions_for_order( $theorder );
+		$order_id      = $order->get_id();
+		$order_actions = self::get_available_order_actions_for_order( $order );
 		?>
 		<ul class="order_actions submitbox">
 
-			<?php do_action( 'woocommerce_order_actions_start', $post->ID ); ?>
+			<?php
+			/**
+			 * Fires at the start of order actions meta box rendering.
+			 *
+			 * @since 2.1.0
+			 */
+			do_action( 'woocommerce_order_actions_start', $order_id );
+			?>
+
 
 			<li class="wide" id="actions">
 				<select name="wc_order_action">
@@ -51,7 +60,7 @@ class WC_Meta_Box_Order_Actions {
 			<li class="wide">
 				<div id="delete-action">
 					<?php
-					if ( current_user_can( 'delete_post', $post->ID ) ) {
+					if ( current_user_can( 'delete_post', $order_id ) ) {
 
 						if ( ! EMPTY_TRASH_DAYS ) {
 							$delete_text = __( 'Delete permanently', 'woocommerce' );
@@ -59,19 +68,52 @@ class WC_Meta_Box_Order_Actions {
 							$delete_text = __( 'Move to Trash', 'woocommerce' );
 						}
 						?>
-						<a class="submitdelete deletion" href="<?php echo esc_url( get_delete_post_link( $post->ID ) ); ?>"><?php echo esc_html( $delete_text ); ?></a>
+						<a class="submitdelete deletion" href="<?php echo esc_url( self::get_trash_or_delete_order_link( $order_id ) ); ?>"><?php echo esc_html( $delete_text ); ?></a>
 						<?php
 					}
 					?>
 				</div>
 
-				<button type="submit" class="button save_order button-primary" name="save" value="<?php echo 'auto-draft' === $post->post_status ? esc_attr__( 'Create', 'woocommerce' ) : esc_attr__( 'Update', 'woocommerce' ); ?>"><?php echo 'auto-draft' === $post->post_status ? esc_html__( 'Create', 'woocommerce' ) : esc_html__( 'Update', 'woocommerce' ); ?></button>
+				<button type="submit" class="button save_order button-primary" name="save" value="<?php echo OrderStatus::AUTO_DRAFT === $order->get_status() ? esc_attr__( 'Create', 'woocommerce' ) : esc_attr__( 'Update', 'woocommerce' ); ?>"><?php echo OrderStatus::AUTO_DRAFT === $order->get_status() ? esc_html__( 'Create', 'woocommerce' ) : esc_html__( 'Update', 'woocommerce' ); ?></button>
 			</li>
 
-			<?php do_action( 'woocommerce_order_actions_end', $post->ID ); ?>
+			<?php
+			/**
+			 * Fires at the end of order actions meta box rendering.
+			 *
+			 * @since 2.1.0
+			 */
+			do_action( 'woocommerce_order_actions_end', $order_id );
+			?>
 
 		</ul>
 		<?php
+	}
+
+	/**
+	 * Forms a trash/delete order URL.
+	 *
+	 * @param int $order_id The order ID for which we want a trash/delete URL.
+	 *
+	 * @return string
+	 */
+	private static function get_trash_or_delete_order_link( int $order_id ): string {
+		if ( OrderUtil::custom_orders_table_usage_is_enabled() ) {
+			$order_type      = wc_get_order( $order_id )->get_type();
+			$order_list_url  = wc_get_container()->get( PageController::class )->get_base_page_url( $order_type );
+			$trash_order_url = add_query_arg(
+				array(
+					'action'           => 'trash',
+					'id'               => array( $order_id ),
+					'_wp_http_referer' => $order_list_url,
+				),
+				$order_list_url
+			);
+
+			return wp_nonce_url( $trash_order_url, 'bulk-orders' );
+		}
+
+		return get_delete_post_link( $order_id );
 	}
 
 	/**
@@ -90,6 +132,11 @@ class WC_Meta_Box_Order_Actions {
 			$action = wc_clean( wp_unslash( $_POST['wc_order_action'] ) ); // @codingStandardsIgnoreLine
 
 			if ( 'send_order_details' === $action ) {
+				/**
+				 * Fires before an order email is resent.
+				 *
+				 * @since 1.0.0
+				 */
 				do_action( 'woocommerce_before_resend_order_emails', $order, 'customer_invoice' );
 
 				// Send the customer invoice email.
@@ -100,6 +147,11 @@ class WC_Meta_Box_Order_Actions {
 				// Note the event.
 				$order->add_order_note( __( 'Order details manually sent to customer.', 'woocommerce' ), false, true );
 
+				/**
+				 * Fires after an order email has been resent.
+				 *
+				 * @since 1.0.0
+				 */
 				do_action( 'woocommerce_after_resend_order_email', $order, 'customer_invoice' );
 
 				// Change the post saved message.
@@ -158,7 +210,7 @@ class WC_Meta_Box_Order_Actions {
 	 */
 	private static function get_available_order_actions_for_order( $order ) {
 		$actions = array(
-			'send_order_details'              => __( 'Email invoice / order details to customer', 'woocommerce' ),
+			'send_order_details'              => __( 'Send order details to customer', 'woocommerce' ),
 			'send_order_details_admin'        => __( 'Resend new order notification', 'woocommerce' ),
 			'regenerate_download_permissions' => __( 'Regenerate download permissions', 'woocommerce' ),
 		);
