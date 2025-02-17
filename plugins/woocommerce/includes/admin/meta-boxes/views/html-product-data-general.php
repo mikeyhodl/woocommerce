@@ -7,6 +7,8 @@
 
 defined( 'ABSPATH' ) || exit;
 
+use Automattic\WooCommerce\Enums\ProductTaxStatus;
+
 ?>
 <div id="general_product_data" class="panel woocommerce_options_panel">
 
@@ -88,9 +90,13 @@ defined( 'ABSPATH' ) || exit;
 				</thead>
 				<tbody>
 					<?php
-					$downloadable_files = $product_object->get_downloads( 'edit' );
+					$downloadable_files       = $product_object->get_downloads( 'edit' );
+					$disabled_downloads_count = 0;
+
 					if ( $downloadable_files ) {
 						foreach ( $downloadable_files as $key => $file ) {
+							$disabled_download         = isset( $file['enabled'] ) && false === $file['enabled'];
+							$disabled_downloads_count += (int) $disabled_download;
 							include __DIR__ . '/html-product-download.php';
 						}
 					}
@@ -98,19 +104,33 @@ defined( 'ABSPATH' ) || exit;
 				</tbody>
 				<tfoot>
 					<tr>
-						<th colspan="5">
+						<th colspan="2">
 							<a href="#" class="button insert" data-row="
 							<?php
-								$key  = '';
-								$file = array(
+								$key               = '';
+								$file              = array(
 									'file' => '',
 									'name' => '',
 								);
+								$disabled_download = false;
 								ob_start();
 								require __DIR__ . '/html-product-download.php';
 								echo esc_attr( ob_get_clean() );
 								?>
 							"><?php esc_html_e( 'Add File', 'woocommerce' ); ?></a>
+						</th>
+						<th colspan="3">
+							<?php if ( $disabled_downloads_count ) : ?>
+								<span class="disabled">*</span>
+								<?php
+									printf(
+										/* translators: 1: opening link tag, 2: closing link tag. */
+										esc_html__( 'The indicated downloads have been disabled (invalid location or filetype&mdash;%1$slearn more%2$s).', 'woocommerce' ),
+										'<a href="https://woocommerce.com/document/approved-download-directories" target="_blank">',
+										'</a>'
+									);
+								?>
+							<?php endif; ?>
 						</th>
 					</tr>
 				</tfoot>
@@ -160,9 +180,9 @@ defined( 'ABSPATH' ) || exit;
 					'value'       => $product_object->get_tax_status( 'edit' ),
 					'label'       => __( 'Tax status', 'woocommerce' ),
 					'options'     => array(
-						'taxable'  => __( 'Taxable', 'woocommerce' ),
-						'shipping' => __( 'Shipping only', 'woocommerce' ),
-						'none'     => _x( 'None', 'Tax status', 'woocommerce' ),
+						ProductTaxStatus::TAXABLE  => __( 'Taxable', 'woocommerce' ),
+						ProductTaxStatus::SHIPPING => __( 'Shipping only', 'woocommerce' ),
+						ProductTaxStatus::NONE     => _x( 'None', 'Tax status', 'woocommerce' ),
 					),
 					'desc_tip'    => 'true',
 					'description' => __( 'Define whether or not the entire product is taxable, or just the cost of shipping it.', 'woocommerce' ),

@@ -5,8 +5,10 @@
  * @package WooCommerce\Tests\Settings
  */
 
+use Automattic\WooCommerce\Internal\DataStores\Orders\CustomOrdersTableController;
 use Automattic\WooCommerce\Testing\Tools\CodeHacking\Hacks\FunctionsMockerHack;
 use Automattic\WooCommerce\Testing\Tools\CodeHacking\Hacks\StaticMockerHack;
+use Automattic\WooCommerce\Utilities\FeaturesUtil;
 
 require_once __DIR__ . '/class-wc-settings-unit-test-case.php';
 
@@ -31,6 +33,11 @@ class WC_Settings_Advanced_Test extends WC_Settings_Unit_Test_Case {
 			'woocommerce_com',
 			'features',
 		);
+
+		if ( FeaturesUtil::feature_is_enabled( 'blueprint' ) ) {
+			$position = array_search( 'woocommerce_com', $expected, true ) + 1;
+			array_splice( $expected, $position, 0, 'blueprint' );
+		}
 
 		$this->assertEquals( $expected, $section_names );
 	}
@@ -117,38 +124,6 @@ class WC_Settings_Advanced_Test extends WC_Settings_Unit_Test_Case {
 	}
 
 	/**
-	 * @testdox get_settings('') should take the cart page id from the woocommerce_cart_shortcode_tag filter.
-	 */
-	public function test_get_default_settings_takes_cart_page_id_from_filter() {
-		$original_id = null;
-
-		add_filter(
-			'woocommerce_cart_shortcode_tag',
-			function ( $id ) use ( &$original_id ) {
-				$original_id = $id;
-				return 'foobar';
-			},
-			10,
-			1
-		);
-
-		$sut                 = new WC_Settings_Advanced();
-		$settings            = $sut->get_settings_for_section( '' );
-		$setting             = current(
-			array_filter(
-				$settings,
-				function( $value ) {
-					return 'woocommerce_cart_page_id' === $value['id'];
-				}
-			)
-		);
-		$actual_setting_desc = $setting['desc'];
-
-		$this->assertEquals( 'woocommerce_cart', $original_id );
-		$this->assertEquals( 'Page contents: [foobar]', $actual_setting_desc );
-	}
-
-	/**
 	 * @testdox get_settings('woocommerce_com') should return all the settings for the woocommerce_com section.
 	 */
 	public function test_get_woocommerce_com_settings_returns_all_settings() {
@@ -202,17 +177,17 @@ class WC_Settings_Advanced_Test extends WC_Settings_Unit_Test_Case {
 		StaticMockerHack::add_method_mocks(
 			array(
 				'WC_Admin_Webhooks' => array(
-					'page_output' => function() use ( &$actual_invoked_class ) {
+					'page_output' => function () use ( &$actual_invoked_class ) {
 						$actual_invoked_class = 'WC_Admin_Webhooks';
 					},
 				),
 				'WC_Admin_API_Keys' => array(
-					'page_output' => function() use ( &$actual_invoked_class ) {
+					'page_output' => function () use ( &$actual_invoked_class ) {
 						$actual_invoked_class = 'WC_Admin_API_Keys';
 					},
 				),
 				'WC_Admin_Settings' => array(
-					'output_fields' => function( $settings ) use ( &$actual_invoked_class ) {
+					'output_fields' => function () use ( &$actual_invoked_class ) {
 						$actual_invoked_class = 'WC_Admin_Settings';
 					},
 				),
@@ -244,12 +219,12 @@ class WC_Settings_Advanced_Test extends WC_Settings_Unit_Test_Case {
 		StaticMockerHack::add_method_mocks(
 			array(
 				'WC_Admin_Webhooks' => array(
-					'notices' => function() use ( &$actual_invoked_class ) {
+					'notices' => function () use ( &$actual_invoked_class ) {
 						$actual_invoked_class = 'WC_Admin_Webhooks';
 					},
 				),
 				'WC_Admin_API_Keys' => array(
-					'notices' => function() use ( &$actual_invoked_class ) {
+					'notices' => function () use ( &$actual_invoked_class ) {
 						$actual_invoked_class = 'WC_Admin_API_Keys';
 					},
 				),
@@ -322,7 +297,7 @@ class WC_Settings_Advanced_Test extends WC_Settings_Unit_Test_Case {
 		StaticMockerHack::add_method_mocks(
 			array(
 				'WC_Admin_Settings' => array(
-					'save_fields' => function( $settings ) use ( &$settings_were_saved ) {
+					'save_fields' => function () use ( &$settings_were_saved ) {
 						$settings_were_saved = true;
 					},
 				),

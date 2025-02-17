@@ -27,9 +27,14 @@ class WC_Tests_API_Functions extends WC_Unit_Test_Case {
 	private $file_name;
 
 	/**
+	 * @var string Regex used to match the file name used in wc_rest_upload_image_from_url() tests.
+	 */
+	private $file_regex;
+
+	/**
 	 * Run setup code for unit tests.
 	 */
-	public function setUp() {
+	public function setUp(): void {
 		parent::setUp();
 
 		// Callback used by WP_HTTP_TestCase to decide whether to perform HTTP requests or to provide a mocked response.
@@ -39,12 +44,13 @@ class WC_Tests_API_Functions extends WC_Unit_Test_Case {
 		$this->upload_dir_path = $upload_dir_info['path'];
 		$this->upload_dir_url  = $upload_dir_info['url'];
 		$this->file_name       = 'Dr1Bczxq4q.png';
+		$this->file_regex      = '/Dr1Bczxq4q(?:-[0-9]+)?\.png$/';
 	}
 
 	/**
 	 * Run tear down code for unit tests.
 	 */
-	public function tearDown() {
+	public function tearDown(): void {
 		parent::tearDown();
 
 		// remove files created in the wc_rest_upload_image_from_url() tests.
@@ -108,14 +114,11 @@ class WC_Tests_API_Functions extends WC_Unit_Test_Case {
 	 * @requires PHP 5.4
 	 */
 	public function test_wc_rest_upload_image_from_url_should_download_image_and_return_array() {
-		$expected_result = array(
-			'file' => $this->upload_dir_path . '/' . $this->file_name,
-			'url'  => $this->upload_dir_url . '/' . $this->file_name,
-			'type' => 'image/png',
-		);
-		$result          = wc_rest_upload_image_from_url( 'http://somedomain.com/' . $this->file_name );
+		$result = wc_rest_upload_image_from_url( 'http://somedomain.com/' . $this->file_name );
 
-		$this->assertEquals( $expected_result, $result );
+		$this->assertMatchesRegularExpression( $this->file_regex, $result['file'] );
+		$this->assertMatchesRegularExpression( $this->file_regex, $result['url'] );
+		$this->assertEquals( 'image/png', $result['type'] );
 	}
 
 	/**
@@ -124,8 +127,7 @@ class WC_Tests_API_Functions extends WC_Unit_Test_Case {
 	 * @since 2.6.0
 	 */
 	public function test_wc_rest_set_uploaded_image_as_attachment() {
-		$this->assertInternalType(
-			'int',
+		$this->assertIsInt(
 			wc_rest_set_uploaded_image_as_attachment(
 				array(
 					'file' => '',

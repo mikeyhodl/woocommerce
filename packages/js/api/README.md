@@ -1,12 +1,20 @@
 # WooCommerce API Client
 
-An isometric API client for interacting with WooCommerce installations. Here are the current and planned
+An API client for interacting with WooCommerce installations that works both in the browser and in Node environments. Here are the current and planned
 features:
 
-- [x] TypeScript Definitions
+- [x] TypeScript Definitions \*
 - [x] Axios API Client with support for OAuth & basic auth
-- [x] Repositories to simplify interaction with basic data types
+- [X] Partial support to Repositories, to simplify interaction with basic data types \*
 - [x] Service classes for common activities such as changing settings
+
+_\* TypeScript Definitions and Repositories are currently only supported for [Products](https://woocommerce.github.io/woocommerce-rest-api-docs/#products), and partially supported for [Orders](https://woocommerce.github.io/woocommerce-rest-api-docs/#orders)._
+
+## Differences from @woocommerce/woocommerce-rest-api
+
+WooCommerce has two API clients in JavaScript for interacting with a WooCommerce installation's RESTful API. This package, and the [@woocommerce/woocommerce-rest-api](https://www.npmjs.com/package/@woocommerce/woocommerce-rest-api) package.
+
+The main difference between them is the Repositories and the TypeScript definitions for the supported endpoints. When using Axios directly, as you can do with both libraries, you query the WooCommerce API in a raw object format, following the [API documentation](https://woocommerce.github.io/woocommerce-rest-api-docs/#introduction) parameters. Comparatively, with the Repositories provided in this package, you have the parameters as properties of an object, which gives you the benefits of auto-complete and strict types, for instance.
 
 ## Usage
 
@@ -96,7 +104,7 @@ The following methods are available on all repositories if the corresponding met
 - `read( objectId )` - Read a single object of the model type
 - `update( objectId, {...properties} )` - Update a single object of the model type
 
-#### Child Repositories
+#### Child Repositories Use
 
 In child model repositories, each method requires the `parentId` as the first parameter:
 

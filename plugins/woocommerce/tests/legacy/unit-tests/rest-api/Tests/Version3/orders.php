@@ -9,6 +9,8 @@
 // phpcs:ignore Squiz.Commenting.FileComment.Missing
 require_once __DIR__ . '/date-filtering.php';
 
+use Automattic\WooCommerce\Enums\OrderStatus;
+use Automattic\WooCommerce\Enums\ProductTaxStatus;
 use Automattic\WooCommerce\RestApi\UnitTests\Helpers\CouponHelper;
 use Automattic\WooCommerce\RestApi\UnitTests\Helpers\OrderHelper;
 
@@ -28,7 +30,7 @@ class WC_Tests_API_Orders extends WC_REST_Unit_Test_Case {
 	/**
 	 * Setup our test server.
 	 */
-	public function setUp() {
+	public function setUp(): void {
 		parent::setUp();
 		$this->endpoint = new WC_REST_Orders_Controller();
 		$this->user     = $this->factory->user->create(
@@ -77,10 +79,10 @@ class WC_Tests_API_Orders extends WC_REST_Unit_Test_Case {
 		$order1 = OrderHelper::create_order( $this->user );
 		$order2 = OrderHelper::create_order( $this->user );
 
-		$order1->set_status( 'completed' );
+		$order1->set_status( OrderStatus::COMPLETED );
 		$order1->save();
 		sleep( 1 );
-		$order2->set_status( 'completed' );
+		$order2->set_status( OrderStatus::COMPLETED );
 		$order2->save();
 
 		$request = new WP_REST_Request( 'GET', '/wc/v3/orders' );
@@ -275,7 +277,7 @@ class WC_Tests_API_Orders extends WC_REST_Unit_Test_Case {
 		$request = new WP_REST_Request( 'POST', '/wc/v3/orders' );
 		$request->set_body_params(
 			array(
-				'payment_method'       => 'bacs',
+				'payment_method'       => WC_Gateway_BACS::ID,
 				'payment_method_title' => 'Direct Bank Transfer',
 				'set_paid'             => true,
 				'billing'              => array(
@@ -399,7 +401,7 @@ class WC_Tests_API_Orders extends WC_REST_Unit_Test_Case {
 		$request = new WP_REST_Request( 'POST', '/wc/v3/orders' );
 		$request->set_body_params(
 			array(
-				'payment_method'       => 'bacs',
+				'payment_method'       => WC_Gateway_BACS::ID,
 				'payment_method_title' => '<h1>Sanitize this <script>alert(1);</script></h1>',
 				'set_paid'             => true,
 				'billing'              => array(
@@ -451,7 +453,7 @@ class WC_Tests_API_Orders extends WC_REST_Unit_Test_Case {
 		$request = new WP_REST_Request( 'PUT', '/wc/v3/orders/' . $data['id'] );
 		$request->set_body_params(
 			array(
-				'payment_method'       => 'bacs',
+				'payment_method'       => WC_Gateway_BACS::ID,
 				'payment_method_title' => '<h1>Sanitize this too <script>alert(1);</script></h1>',
 			)
 		);
@@ -475,7 +477,7 @@ class WC_Tests_API_Orders extends WC_REST_Unit_Test_Case {
 		$request = new WP_REST_Request( 'POST', '/wc/v3/orders' );
 		$request->set_body_params(
 			array(
-				'payment_method'       => 'bacs',
+				'payment_method'       => WC_Gateway_BACS::ID,
 				'payment_method_title' => 'Direct Bank Transfer',
 				'set_paid'             => true,
 				'customer_id'          => 99999,
@@ -585,7 +587,7 @@ class WC_Tests_API_Orders extends WC_REST_Unit_Test_Case {
 		$fee->set_props(
 			array(
 				'name'       => 'Some Fee',
-				'tax_status' => 'taxable',
+				'tax_status' => ProductTaxStatus::TAXABLE,
 				'total'      => '100',
 				'tax_class'  => '',
 			)
@@ -657,6 +659,10 @@ class WC_Tests_API_Orders extends WC_REST_Unit_Test_Case {
 			'sku'          => null,
 			'price'        => 4,
 			'parent_name'  => null,
+			'image'        => array(
+				'id'  => 0,
+				'src' => '',
+			),
 		);
 
 		$this->assertEquals( 200, $response->get_status() );
@@ -1139,7 +1145,7 @@ class WC_Tests_API_Orders extends WC_REST_Unit_Test_Case {
 		$data       = $response->get_data();
 		$properties = $data['schema']['properties'];
 
-		$this->assertEquals( 43, count( $properties ) );
+		$this->assertEquals( 47, count( $properties ) );
 		$this->assertArrayHasKey( 'id', $properties );
 	}
 
@@ -1155,7 +1161,7 @@ class WC_Tests_API_Orders extends WC_REST_Unit_Test_Case {
 		$data = $response->get_data();
 
 		$line_item_properties = $data['schema']['properties']['line_items']['items']['properties'];
-		$this->assertEquals( 15, count( $line_item_properties ) );
+		$this->assertEquals( 16, count( $line_item_properties ) );
 		$this->assertArrayHasKey( 'id', $line_item_properties );
 		$this->assertArrayHasKey( 'meta_data', $line_item_properties );
 		$this->assertArrayHasKey( 'parent_name', $line_item_properties );

@@ -5,7 +5,9 @@
  * @package WooCommerce\Tests.
  */
 
- /**
+use Automattic\WooCommerce\Enums\OrderStatus;
+
+/**
   * Class WC_Discounts_Tests.
   */
 class WC_Discounts_Tests extends WC_Unit_Test_Case {
@@ -62,7 +64,7 @@ class WC_Discounts_Tests extends WC_Unit_Test_Case {
 		$data_store = WC_Data_Store::load( 'coupon' );
 		$order      = wc_create_order(
 			array(
-				'status'      => 'pending',
+				'status'      => OrderStatus::PENDING,
 				'customer_id' => $customer->get_id(),
 			)
 		);
@@ -92,5 +94,24 @@ class WC_Discounts_Tests extends WC_Unit_Test_Case {
 		$valid = ( new WC_Discounts() )->is_coupon_valid( $coupon );
 		$this->assertWPError( $valid );
 		$this->assertEquals( $coupon->get_coupon_error( WC_Coupon::E_WC_COUPON_USAGE_LIMIT_COUPON_STUCK ), $valid->get_error_message() );
+	}
+
+	/**
+	 * Test if coupon is valid (it shouldn't be) if it has been placed in the trash.
+	 */
+	public function test_is_trashed_coupon_valid() {
+		$coupon = new WC_Coupon( uniqid() );
+		$coupon->set_discount_type( 'fixed_cart' );
+		$coupon->set_amount( 10 );
+		$coupon->save();
+
+		$discounts = new WC_Discounts();
+		$this->assertTrue( $discounts->is_coupon_valid( $coupon ), 'Newly created coupon is initially valid.' );
+
+		wp_trash_post( $coupon->get_id() );
+		$coupon = new WC_Coupon( $coupon );
+		$result = $discounts->is_coupon_valid( $coupon );
+		$this->assertInstanceOf( WP_Error::class, $result, 'Once trashed, the coupon is no longer valid.' );
+		$this->assertEquals( 'invalid_coupon', $result->get_error_code(), 'We receive an appropriate WP_Error.' );
 	}
 }

@@ -16,7 +16,7 @@ wp post create --post_type=page --post_status=publish --post_title='Ready' --pos
 
 ### Project Initialization
 
-Each project will have its own begin test state and initialization script. For example, a project might start testing expecting that the [sample products](https://github.com/woocommerce/woocommerce/tree/trunk/sample-data) have already been imported. Below is the WP CLI equivalent of the built in initialization script for WooCommerce Core E2E testing:
+Each project will have its own begin test state and initialization script. For example, a project might start testing expecting that the [sample products](https://github.com/woocommerce/woocommerce/tree/trunk/plugins/woocommerce/sample-data) have already been imported. Below is the WP CLI equivalent of the built in initialization script for WooCommerce Core E2E testing:
 
 
 ```
@@ -52,7 +52,7 @@ wp plugin install wp-mail-logging --activate
 The container build script supports an initialization script parameter
 
 ```shell script
-pnpx wc-e2e docker:up plugins/woocommerce/tests/e2e/docker/init-wp-beta.sh
+pnpm exec wc-e2e docker:up plugins/woocommerce/tests/e2e/docker/init-wp-beta.sh
 ```
 
 This script updates WordPress to the latest nightly point release
@@ -129,7 +129,7 @@ Other repository examples:
 - Storefront Theme - ```WC_E2E_FOLDER_MAPPING=/var/www/html/wp-content/themes/storefront npx wc-e2e docker:up```
 - Site Project - ```WC_E2E_FOLDER_MAPPING=/var/www/html/wp-content npx wc-e2e docker:up```
 
-Since the introduction of the WooCommerce Monorepo, a `WC_CORE_PATH` environment variable maps to Core WooCommerce at `plugins/woocommerce`. It can also be overriden in a similar fashion.
+Since the introduction of the WooCommerce Monorepo, a `WC_CORE_PATH` environment variable maps to Core WooCommerce at `plugins/woocommerce`. It can also be overridden in a similar fashion.
 
 ### Specifying Server Software versions
 

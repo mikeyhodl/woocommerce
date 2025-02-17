@@ -5,6 +5,9 @@
  * @package WooCommerce\Admin\Notices
  */
 
+use Automattic\WooCommerce\Enums\CatalogVisibility;
+use Automattic\WooCommerce\Enums\ProductTaxStatus;
+
 defined( 'ABSPATH' ) || exit;
 ?>
 
@@ -51,9 +54,9 @@ defined( 'ABSPATH' ) || exit;
 					<select class="tax_status" name="_tax_status">
 						<?php
 						$options = array(
-							'taxable'  => __( 'Taxable', 'woocommerce' ),
-							'shipping' => __( 'Shipping only', 'woocommerce' ),
-							'none'     => _x( 'None', 'Tax status', 'woocommerce' ),
+							ProductTaxStatus::TAXABLE  => __( 'Taxable', 'woocommerce' ),
+							ProductTaxStatus::SHIPPING => __( 'Shipping only', 'woocommerce' ),
+							ProductTaxStatus::NONE     => _x( 'None', 'Tax status', 'woocommerce' ),
 						);
 						foreach ( $options as $key => $value ) {
 							echo '<option value="' . esc_attr( $key ) . '">' . esc_html( $value ) . '</option>';
@@ -142,10 +145,10 @@ defined( 'ABSPATH' ) || exit;
 						$options = apply_filters(
 							'woocommerce_product_visibility_options',
 							array(
-								'visible' => __( 'Catalog &amp; search', 'woocommerce' ),
-								'catalog' => __( 'Catalog', 'woocommerce' ),
-								'search'  => __( 'Search', 'woocommerce' ),
-								'hidden'  => __( 'Hidden', 'woocommerce' ),
+								CatalogVisibility::VISIBLE => __( 'Catalog &amp; search', 'woocommerce' ),
+								CatalogVisibility::CATALOG => __( 'Catalog', 'woocommerce' ),
+								CatalogVisibility::SEARCH  => __( 'Search', 'woocommerce' ),
+								CatalogVisibility::HIDDEN  => __( 'Hidden', 'woocommerce' ),
 							)
 						);
 						foreach ( $options as $key => $value ) {

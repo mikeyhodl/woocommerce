@@ -1,124 +1,91 @@
-# WooCommerce Development Setup with WP-ENV
+# Development
 
-Docker development setup for WooCommerce with WP-ENV.
+This document aims to provide as much context as possible to aid in the development of plugins, packages, and tools in the monorepo.
 
-## Prerequisites
+## Getting Started
 
-Please install WP-ENV before getting started. You can find more about WP-ENV on [here](https://github.com/WordPress/gutenberg/tree/master/packages/env).
+Please refer to [the Getting Started section of the `README.md`](README.md#getting-started) for a general-purpose guide on getting started. The rest of this document will assume that you've installed all of the prerequisites and setup described there.
 
-The following command installs WP-ENV globally.
+### Plugin, Package, and Tool Filtering
 
-`npm -g i @wordpress/env`
+In order to run commands on individual projects you will need to utilize [PNPM's --filter flag](https://pnpm.io/filtering). This flag supports `"name"` option in `package.json`, paths, and globs.
 
-If you don't already have [pnpm](https://pnpm.io/installation) installed, you can quickly add it using NPM.
+### Examples
 
-`npm install -g pnpm`
+Here are some examples of the ways you can use `pnpm` commands:
 
-## Starting WP-ENV
+```bash
+# Lint and build all plugins, packages, and tools.
+pnpm lint && pnpm build
 
-1. Navigate to the root of WooCommerce source code.
-2. Start the docker container by running `wp-env start`
+# Build WooCommerce Core and all of its dependencies
+pnpm --filter='@woocommerce/plugin-woocommerce' build
 
-You should see the following output
+# Lint the @woocommerce/components package
+pnpm --filter='@woocommerce/components' lint
 
-```
-WordPress development site started at http://localhost:8888/
-WordPress test site started at http://localhost:8889/
-MySQL is listening on port 55003
-```
+# Test all of the @woocommerce scoped packages
+pnpm --filter='@woocommerce/*' test
 
-The port # might be different depending on your `.wp-env.override.json` configuration.
+# Build all of the JavaScript packages
+pnpm --filter='./packages/js/*' build
 
-## Getting Started with Developing
+# Build everything except WooCommerce Core
+pnpm --filter='!@woocommerce/plugin-woocommerce' build
 
-Once you have WP-ENV container up, we need to run a few commands to start developing.
-
-1. Run `pnpm install` to install npm modules.
-2. Run `pnpm nx build woocommerce` to build core.
-3. Run `pnpm nx composer-install woocommerce` to install PHP dependencies.
-
-If you don't have Composer available locally, run the following command. It runs the command in WP-ENV container.
-
-`wp-env run composer composer install`
-
-You might also want to run `pnpm start` to watch your CSS and JS changes if you are working on the frontend.
-
-You're now ready to develop!
-
-## Using Xdebug
-
-Please refer to [WP-ENV official README](https://github.com/WordPress/gutenberg/tree/master/packages/env#using-xdebug) section for setting up Xdebug.
-
-## Overriding the Default Configuration
-
-The default configuration comes with PHP 7.4, WooCommerce 5.0, and a few WordPress config values.
-
-You can create `.wp-env.override.json` file and override the default configuration values.
-
-You can find more about `.wp-env.override.json` configuration [here](https://github.com/WordPress/gutenberg/tree/master/packages/env#wp-envoverridejson).
-
-**Example: Overriding PHP version to 8.0**
-
-Create `.wp-env.override.json` in the root directory with the following content.
-
-```json
-{
-	"phpVersion": "8.0"
-}
+# Build everything that has changed since the last commit
+pnpm --filter='[HEAD^1]' build
 ```
 
-**Exampe: Adding a locally installed plugin**
+### Examples
 
-Method 1 - Adding to the `plugins` array
+Here are some examples of the commands you will make use of.
 
-Open the default `.wp-env.json` and copy `plugins` array and paste it into the `.wp-env.override.json` and add your locally installed plugin. Copying the default `plugins` is needed as WP-ENV does not merge the values of the `plugins`.
+```bash
+# Add a changelog entry for WooCommerce Core
+pnpm --filter='@woocommerce/plugin-woocommerce' changelog add
 
-```json
-{
-	"plugins": [
-		"./plugins/woocommerce",
-		"https://downloads.wordpress.org/plugin/wp-crontrol.1.10.0.zip"
-	]
-}
+# Create the woocommerce.zip file
+pnpm --filter='@woocommerce/plugin-woocommerce' build:zip
 ```
 
-Method 2 - Adding to the `mappings`
+## Plugin Development Environments
 
-This method is simpler, but the plugin does not get activated on startup. You need to manually activate it yourself on the first startup.
+The plugins in our repository make use of [the `@wordpress/env` package](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-env/). This supplies convenient commands for creating, destroying, cleaning, and testing WordPress environments.
 
-```json
-{
-	"mappings": {
-		"wp-content/plugins/wp-crontrol": "../woocommerce"
-	}
-}
+```bash
+# Make sure you are in the working directory of the plugin you are interested in setting up the environment for
+cd plugins/woocommerce
+# Start will create the environment if necessary or start an existing one
+pnpm -- wp-env start
+# Stop will, well, stop the environment
+pnpm -- wp-env stop
+# Destroy will remove all of the environment's files.
+pnpm -- wp-env destroy
 ```
 
-## Accessing MySQL
+Each of the [plugins in our repository](plugins) support using this tool to spin up a development environment. Note that rather than having a single top-level environment, each plugin has its own. This is done in order to prevent conflicts between them.
 
-The MySQL port can change when you restart your container.
+Please check out [the official documentation](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-env/) if you would like to learn more about this tool.
 
-You can get the current MySQL port from the output of `wp-env start` command.
+## Troubleshooting
 
-1. Open your choice of MySQL tool.
-2. Use the following values to access the MySQL container.
-3. You can omit the username and password.
+### Installing PHP in Unix (e.g. Ubuntu)
 
-| Name     | Value                 |
-| -------- | --------------------- |
-| Host     | 127.0.0.1             |
-| Username |                       |
-| Password |                       |
-| Port     | Port from the command |
+Many unix systems such as Ubuntu will have PHP already installed. Sometimes without the extra packages you need to run WordPress and this will cause you to run into troubles.
 
-## HOWTOs
+Use your package manager to add the extra PHP packages you'll need.
+e.g. in Ubuntu you can run:
 
-##### How do I ssh into the container?
-
-Run the following command to ssh into the container
-`wp-env run wordpress /bin/bash`
-
-You can run a command in the container with the following syntax. You can find more about on the `run` command [here](https://github.com/WordPress/gutenberg/tree/master/packages/env#wp-env-run-container-command)
-
-Syntax:
-`wp-env run :container-type :linux-command`
+```
+sudo apt update
+sudo apt install php-bcmath \
+                 php-curl \
+                 php-imagick \
+                 php-intl \
+                 php-json \
+                 php-mbstring \
+                 php-mysql \
+                 php-xml \
+                 php-zip
+```

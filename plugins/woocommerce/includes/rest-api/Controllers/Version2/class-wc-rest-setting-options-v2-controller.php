@@ -39,7 +39,9 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 	 */
 	public function register_routes() {
 		register_rest_route(
-			$this->namespace, '/' . $this->rest_base, array(
+			$this->namespace,
+			'/' . $this->rest_base,
+			array(
 				'args'   => array(
 					'group' => array(
 						'description' => __( 'Settings group ID.', 'woocommerce' ),
@@ -56,7 +58,9 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 		);
 
 		register_rest_route(
-			$this->namespace, '/' . $this->rest_base . '/batch', array(
+			$this->namespace,
+			'/' . $this->rest_base . '/batch',
+			array(
 				'args'   => array(
 					'group' => array(
 						'description' => __( 'Settings group ID.', 'woocommerce' ),
@@ -74,7 +78,9 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 		);
 
 		register_rest_route(
-			$this->namespace, '/' . $this->rest_base . '/(?P<id>[\w-]+)', array(
+			$this->namespace,
+			'/' . $this->rest_base . '/(?P<id>[\w-]+)',
+			array(
 				'args'   => array(
 					'group' => array(
 						'description' => __( 'Settings group ID.', 'woocommerce' ),
@@ -159,6 +165,7 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 			return new WP_Error( 'rest_setting_setting_group_invalid', __( 'Invalid setting group.', 'woocommerce' ), array( 'status' => 404 ) );
 		}
 
+		// phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		$settings = apply_filters( 'woocommerce_settings-' . $group_id, array() );
 
 		if ( empty( $settings ) ) {
@@ -240,7 +247,7 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 			return $settings;
 		}
 
-		$array_key = array_keys( wp_list_pluck( $settings, 'id' ), $setting_id );
+		$array_key = array_keys( wp_list_pluck( $settings, 'id' ), $setting_id, true );
 
 		if ( empty( $array_key ) ) {
 			return new WP_Error( 'rest_setting_setting_invalid', __( 'Invalid setting.', 'woocommerce' ), array( 'status' => 404 ) );
@@ -309,7 +316,7 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 		if ( is_array( $setting['option_key'] ) ) {
 			$setting['value']       = $value;
 			$option_key             = $setting['option_key'];
-			$prev                   = get_option( $option_key[0] );
+			$prev                   = get_option( $option_key[0], null ) ?? array();
 			$prev[ $option_key[1] ] = $request['value'];
 			update_option( $option_key[0], $prev );
 		} else {
@@ -395,6 +402,19 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 	}
 
 	/**
+	 * Makes sure the current user has access to WRITE the settings APIs.
+	 *
+	 * @since 9.5.2
+	 *
+	 * @param WP_REST_Request $request Full data about the request.
+	 *
+	 * @return WP_Error|boolean True if the request has permission, otherwise false.
+	 */
+	public function update_item_permissions_check( $request ) {
+		return $this->update_items_permissions_check( $request ); // We check for manager permission for all setting.
+	}
+
+	/**
 	 * Filters out bad values from the settings array/filter so we
 	 * only return known values via the API.
 	 *
@@ -448,7 +468,8 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 	 */
 	public function allowed_setting_keys( $key ) {
 		return in_array(
-			$key, array(
+			$key,
+			array(
 				'id',
 				'label',
 				'description',
@@ -459,7 +480,8 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 				'options',
 				'value',
 				'option_key',
-			)
+			),
+			true
 		);
 	}
 
@@ -472,7 +494,8 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 	 */
 	public function is_setting_type_valid( $type ) {
 		return in_array(
-			$type, array(
+			$type,
+			array(
 				'text',         // Validates with validate_setting_text_field.
 				'email',        // Validates with validate_setting_text_field.
 				'number',       // Validates with validate_setting_text_field.
@@ -485,7 +508,8 @@ class WC_REST_Setting_Options_V2_Controller extends WC_REST_Controller {
 				'checkbox',     // Validates with validate_setting_checkbox_field.
 				'image_width',  // Validates with validate_setting_image_width_field.
 				'thumbnail_cropping', // Validates with validate_setting_text_field.
-			)
+			),
+			true
 		);
 	}
 
