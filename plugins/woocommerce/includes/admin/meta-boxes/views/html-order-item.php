@@ -3,7 +3,7 @@
  * Shows an order item
  *
  * @package WooCommerce\Admin
- * @var object $item The item being displayed
+ * @var WC_Order_Item $item The item being displayed
  * @var int $item_id The id of the item being displayed
  */
 
@@ -141,11 +141,6 @@ $row_class    = apply_filters( 'woocommerce_admin_html_order_item_class', ! empt
 			$tax_item_total    = isset( $tax_data['total'][ $tax_item_id ] ) ? $tax_data['total'][ $tax_item_id ] : '';
 			$tax_item_subtotal = isset( $tax_data['subtotal'][ $tax_item_id ] ) ? $tax_data['subtotal'][ $tax_item_id ] : '';
 
-			if ( '' !== $tax_item_subtotal ) {
-				$round_at_subtotal = 'yes' === get_option( 'woocommerce_tax_round_at_subtotal' );
-				$tax_item_total    = wc_round_tax_total( $tax_item_total, $round_at_subtotal ? wc_get_rounding_precision() : null );
-				$tax_item_subtotal = wc_round_tax_total( $tax_item_subtotal, $round_at_subtotal ? wc_get_rounding_precision() : null );
-			}
 			?>
 			<td class="line_tax" width="1%">
 				<div class="view">
@@ -186,7 +181,7 @@ $row_class    = apply_filters( 'woocommerce_admin_html_order_item_class', ! empt
 	<td class="wc-order-edit-line-item" width="1%">
 		<div class="wc-order-edit-line-item-actions">
 			<?php if ( $order->is_editable() ) : ?>
-				<a class="edit-order-item tips" href="#" data-tip="<?php esc_attr_e( 'Edit item', 'woocommerce' ); ?>"></a><a class="delete-order-item tips" href="#" data-tip="<?php esc_attr_e( 'Delete item', 'woocommerce' ); ?>"></a>
+				<a class="edit-order-item tips" href="#" data-tip="<?php esc_attr_e( 'Edit item', 'woocommerce' ); ?>" aria-label="<?php esc_attr_e( 'Edit item', 'woocommerce' ); ?>"></a><a class="delete-order-item tips" href="#" data-tip="<?php esc_attr_e( 'Delete item', 'woocommerce' ); ?>" aria-label="<?php esc_attr_e( 'Delete item', 'woocommerce' ); ?>"></a>
 			<?php endif; ?>
 		</div>
 	</td>

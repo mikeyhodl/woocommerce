@@ -13,6 +13,7 @@
  * @version 3.2.0
  */
 
+use Automattic\WooCommerce\Enums\ProductTaxStatus;
 use Automattic\WooCommerce\Utilities\NumberUtil;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -116,6 +117,13 @@ final class WC_Cart_Totals {
 		'shipping_tax_total' => 0,
 		'discounts_total'    => 0,
 	);
+
+	/**
+	 * Cache of tax rates for a given tax class.
+	 *
+	 * @var array
+	 */
+	protected $item_tax_rates;
 
 	/**
 	 * Sets up the items provided, and calculate totals.
@@ -223,7 +231,7 @@ final class WC_Cart_Totals {
 			$item->key                     = $cart_item_key;
 			$item->object                  = $cart_item;
 			$item->tax_class               = $cart_item['data']->get_tax_class();
-			$item->taxable                 = 'taxable' === $cart_item['data']->get_tax_status();
+			$item->taxable                 = ProductTaxStatus::TAXABLE === $cart_item['data']->get_tax_status();
 			$item->price_includes_tax      = wc_prices_include_tax();
 			$item->quantity                = $cart_item['quantity'];
 			$item->price                   = wc_add_number_precision_deep( (float) $cart_item['data']->get_price() * (float) $cart_item['quantity'] );
@@ -422,7 +430,7 @@ final class WC_Cart_Totals {
 			} else {
 				/**
 				 * If we want all customers to pay the same price on this store, we should not remove base taxes from a VAT exempt user's price,
-				 * but just the relevent tax rate. See issue #20911.
+				 * but just the relevant tax rate. See issue #20911.
 				 */
 				$base_tax_rates = $item->tax_rates;
 			}
@@ -864,7 +872,7 @@ final class WC_Cart_Totals {
 	protected function calculate_totals() {
 		$this->set_total( 'total', NumberUtil::round( $this->get_total( 'items_total', true ) + $this->get_total( 'fees_total', true ) + $this->get_total( 'shipping_total', true ) + array_sum( $this->get_merged_taxes( true ) ), 0 ) );
 		$items_tax = array_sum( $this->get_merged_taxes( false, array( 'items' ) ) );
-		// Shipping and fee taxes are rounded seperately because they were entered excluding taxes (as opposed to item prices, which may or may not be including taxes depending upon settings).
+		// Shipping and fee taxes are rounded separately because they were entered excluding taxes (as opposed to item prices, which may or may not be including taxes depending upon settings).
 		$shipping_and_fee_taxes = NumberUtil::round( array_sum( $this->get_merged_taxes( false, array( 'fees', 'shipping' ) ) ), wc_get_price_decimals() );
 		$this->cart->set_total_tax( $items_tax + $shipping_and_fee_taxes );
 

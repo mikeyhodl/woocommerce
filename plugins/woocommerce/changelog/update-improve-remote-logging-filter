@@ -1,0 +1,4 @@
+Significance: patch
+Type: update
+
+Improve remote logging error handling and filtering

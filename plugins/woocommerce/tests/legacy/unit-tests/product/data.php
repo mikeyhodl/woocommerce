@@ -5,6 +5,11 @@
  * @package WooCommerce\Tests\Product
  */
 
+use Automattic\WooCommerce\Enums\CatalogVisibility;
+use Automattic\WooCommerce\Enums\ProductStockStatus;
+use Automattic\WooCommerce\Enums\ProductTaxStatus;
+use DMS\PHPUnitExtensions\ArraySubset\ArraySubsetAsserts;
+
 /**
  * Data Functions.
  *
@@ -12,6 +17,8 @@
  * @since 3.0.0
  */
 class WC_Tests_Product_Data extends WC_Unit_Test_Case {
+
+	use ArraySubsetAsserts;
 
 	/**
 	 * Test product setters and getters
@@ -35,7 +42,7 @@ class WC_Tests_Product_Data extends WC_Unit_Test_Case {
 			'name'               => 'Test',
 			'slug'               => 'test',
 			'status'             => 'publish',
-			'catalog_visibility' => 'search',
+			'catalog_visibility' => CatalogVisibility::SEARCH,
 			'featured'           => false,
 			'description'        => 'Hello world',
 			'short_description'  => 'hello',
@@ -43,11 +50,11 @@ class WC_Tests_Product_Data extends WC_Unit_Test_Case {
 			'regular_price'      => 15.00,
 			'sale_price'         => 10.00,
 			'total_sales'        => 20,
-			'tax_status'         => 'none',
+			'tax_status'         => ProductTaxStatus::NONE,
 			'tax_class'          => '',
 			'manage_stock'       => true,
 			'stock_quantity'     => 10,
-			'stock_status'       => 'instock',
+			'stock_status'       => ProductStockStatus::IN_STOCK,
 			'backorders'         => 'notify',
 			'sold_individually'  => false,
 			'weight'             => 100,
@@ -79,16 +86,15 @@ class WC_Tests_Product_Data extends WC_Unit_Test_Case {
 			$this->assertEquals( $value, $product->{"get_{$function}"}(), $function );
 		}
 		$this->assertCount( 1, $product->get_attributes() );
-		$this->assertContains(
-			current( $product->get_attributes() )->get_data(),
+		$this->assertArraySubset(
 			array(
-				'attribute_id' => 0,
-				'name'         => 'Test Attribute',
-				'options'      => array( 'Fish', 'Fingers' ),
-				'position'     => 0,
-				'visible'      => true,
-				'variation'    => false,
-			)
+				'name'      => 'Test Attribute',
+				'options'   => array( 'Fish', 'Fingers' ),
+				'position'  => 0,
+				'visible'   => true,
+				'variation' => false,
+			),
+			current( $product->get_attributes() )->get_data()
 		);
 		$this->assertEquals( $product->get_date_on_sale_from()->getTimestamp(), 1475798400 );
 		$this->assertEquals( $product->get_date_on_sale_to()->getTimestamp(), 1477267200 );
@@ -111,12 +117,12 @@ class WC_Tests_Product_Data extends WC_Unit_Test_Case {
 	 */
 	public function test_product_backorder_stock_status() {
 		$product = new WC_Product();
-		$product->set_stock_status( 'onbackorder' );
-		$this->assertEquals( 'onbackorder', $product->get_stock_status() );
+		$product->set_stock_status( ProductStockStatus::ON_BACKORDER );
+		$this->assertEquals( ProductStockStatus::ON_BACKORDER, $product->get_stock_status() );
 
 		$product->save();
 		$product = new WC_Product( $product->get_id() );
-		$this->assertEquals( 'onbackorder', $product->get_stock_status() );
+		$this->assertEquals( ProductStockStatus::ON_BACKORDER, $product->get_stock_status() );
 	}
 
 	/**
@@ -130,47 +136,47 @@ class WC_Tests_Product_Data extends WC_Unit_Test_Case {
 		// Product should not have quantity and stock status should not be updated automatically if not managing stock.
 		$product->set_manage_stock( false );
 		$product->set_stock_quantity( 5 );
-		$product->set_stock_status( 'instock' );
+		$product->set_stock_status( ProductStockStatus::IN_STOCK );
 		$product->save();
 		$this->assertEquals( '', $product->get_stock_quantity() );
-		$this->assertEquals( 'instock', $product->get_stock_status() );
-		$product->set_stock_status( 'outofstock' );
+		$this->assertEquals( ProductStockStatus::IN_STOCK, $product->get_stock_status() );
+		$product->set_stock_status( ProductStockStatus::OUT_OF_STOCK );
 		$product->save();
-		$this->assertEquals( 'outofstock', $product->get_stock_status() );
+		$this->assertEquals( ProductStockStatus::OUT_OF_STOCK, $product->get_stock_status() );
 
 		$product->set_manage_stock( true );
 
 		// Product should be out of stock if managing orders, no backorders allowed, and quantity too low.
 		$product->set_stock_quantity( 0 );
-		$product->set_stock_status( 'instock' );
+		$product->set_stock_status( ProductStockStatus::IN_STOCK );
 		$product->set_backorders( 'no' );
 		$product->save();
 		$this->assertEquals( 0, $product->get_stock_quantity() );
-		$this->assertEquals( 'outofstock', $product->get_stock_status() );
+		$this->assertEquals( ProductStockStatus::OUT_OF_STOCK, $product->get_stock_status() );
 
 		// Product should be on backorder if managing orders, backorders allowed, and quantity too low.
 		$product->set_stock_quantity( 0 );
-		$product->set_stock_status( 'instock' );
+		$product->set_stock_status( ProductStockStatus::IN_STOCK );
 		$product->set_backorders( 'yes' );
 		$product->save();
 		$this->assertEquals( 0, $product->get_stock_quantity() );
-		$this->assertEquals( 'onbackorder', $product->get_stock_status() );
+		$this->assertEquals( ProductStockStatus::ON_BACKORDER, $product->get_stock_status() );
 
 		// Product should go to in stock if backordered and inventory increases.
 		$product->set_stock_quantity( 5 );
-		$product->set_stock_status( 'onbackorder' );
+		$product->set_stock_status( ProductStockStatus::ON_BACKORDER );
 		$product->set_backorders( 'notify' );
 		$product->save();
 		$this->assertEquals( 5, $product->get_stock_quantity() );
-		$this->assertEquals( 'instock', $product->get_stock_status() );
+		$this->assertEquals( ProductStockStatus::IN_STOCK, $product->get_stock_status() );
 
 		// Product should go to in stock if out of stock and inventory increases.
 		$product->set_stock_quantity( 3 );
-		$product->set_stock_status( 'outofstock' );
+		$product->set_stock_status( ProductStockStatus::OUT_OF_STOCK );
 		$product->set_backorders( 'no' );
 		$product->save();
 		$this->assertEquals( 3, $product->get_stock_quantity() );
-		$this->assertEquals( 'instock', $product->get_stock_status() );
+		$this->assertEquals( ProductStockStatus::IN_STOCK, $product->get_stock_status() );
 	}
 
 	/**
@@ -259,11 +265,11 @@ class WC_Tests_Product_Data extends WC_Unit_Test_Case {
 
 		$product = wc_get_product( $product1_id );
 		$this->assertEquals( $product1_id, $product->get_id() );
-		$this->assertEquals( '<del aria-hidden="true"><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">&#36;</span>10.00</bdi></span></del> <ins><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">&#36;</span>7.00</bdi></span></ins>', $product->get_price_html() );
+		$this->assertEquals( '<del aria-hidden="true"><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">&#36;</span>10.00</bdi></span></del> <span class="screen-reader-text">Original price was: &#036;10.00.</span><ins aria-hidden="true"><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">&#36;</span>7.00</bdi></span></ins><span class="screen-reader-text">Current price is: &#036;7.00.</span>', $product->get_price_html() );
 
 		$product = wc_get_product( $product2_id );
 		$this->assertEquals( $product2_id, $product->get_id() );
-		$this->assertEquals( '<del aria-hidden="true"><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">&#36;</span>20.00</bdi></span></del> <ins><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">&#36;</span>16.00</bdi></span></ins>', $product->get_price_html() );
+		$this->assertEquals( '<del aria-hidden="true"><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">&#36;</span>20.00</bdi></span></del> <span class="screen-reader-text">Original price was: &#036;20.00.</span><ins aria-hidden="true"><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">&#36;</span>16.00</bdi></span></ins><span class="screen-reader-text">Current price is: &#036;16.00.</span>', $product->get_price_html() );
 
 		$product = wc_get_product( $product3_id );
 		$this->assertEquals( $product3_id, $product->get_id() );
@@ -278,17 +284,17 @@ class WC_Tests_Product_Data extends WC_Unit_Test_Case {
 		$image   = $this->set_product_image( $product );
 		$needle  = 'width="186" height="144" src="' . $image['url'] . '" class="%s"';
 
-		$this->assertContains(
+		$this->assertStringContainsString(
 			sprintf( $needle, 'attachment-woocommerce_thumbnail size-woocommerce_thumbnail' ),
 			$product->get_image()
 		);
 
-		$this->assertContains(
+		$this->assertStringContainsString(
 			sprintf( $needle, 'attachment-single size-single' ),
 			$product->get_image( 'single' )
 		);
 
-		$this->assertContains(
+		$this->assertStringContainsString(
 			sprintf( $needle, 'custom-class' ),
 			$product->get_image( 'single', array( 'class' => 'custom-class' ) )
 		);
@@ -306,17 +312,17 @@ class WC_Tests_Product_Data extends WC_Unit_Test_Case {
 		$image            = $this->set_product_image( $variable_product );
 		$needle           = 'width="186" height="144" src="' . $image['url'] . '" class="%s"';
 
-		$this->assertContains(
+		$this->assertStringContainsString(
 			sprintf( $needle, 'attachment-woocommerce_thumbnail size-woocommerce_thumbnail' ),
 			$variation_1->get_image()
 		);
 
-		$this->assertContains(
+		$this->assertStringContainsString(
 			sprintf( $needle, 'attachment-single size-single' ),
 			$variation_1->get_image( 'single' )
 		);
 
-		$this->assertContains(
+		$this->assertStringContainsString(
 			sprintf( $needle, 'custom-class' ),
 			$variation_1->get_image( 'single', array( 'class' => 'custom-class' ) )
 		);
@@ -330,11 +336,11 @@ class WC_Tests_Product_Data extends WC_Unit_Test_Case {
 	public function test_get_image_should_return_place_holder_image() {
 		$product = new WC_Product();
 
-		$this->assertContains( wc_placeholder_img_src(), $product->get_image() );
+		$this->assertStringContainsString( wc_placeholder_img_src(), $product->get_image() );
 
 		// Test custom class attribute is honoured.
 		$image = $product->get_image( 'woocommerce_thumbnail', array( 'class' => 'custom-class' ) );
-		$this->assertContains( 'class="custom-class"', $image );
+		$this->assertStringContainsString( 'class="custom-class"', $image );
 	}
 
 	/**

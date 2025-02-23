@@ -1,0 +1,4 @@
+Significance: patch
+Type: dev
+
+Make sure config, scripts and mocks of the Jest tests setup are properly organized.

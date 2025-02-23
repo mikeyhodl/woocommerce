@@ -6,10 +6,13 @@
  * @since 3.3.0
  */
 
+use DMS\PHPUnitExtensions\ArraySubset\ArraySubsetAsserts;
+
 /**
  * WC_Query tests.
  */
 class WC_Tests_WC_Query extends WC_Unit_Test_Case {
+	use ArraySubsetAsserts;
 
 	/**
 	 * Test WC_Query gets initialized properly.
@@ -34,7 +37,6 @@ class WC_Tests_WC_Query extends WC_Unit_Test_Case {
 
 		WC()->query->get_errors();
 		$this->assertFalse( wc_has_notice( 'test', 'error' ) );
-
 	}
 
 	/**
@@ -327,11 +329,51 @@ class WC_Tests_WC_Query extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * Test the get_catalog_ordering_args method with $_GET param.
+	 */
+	public function test_get_catalog_ordering_args_when_GET_is_array() {
+		$_GET['orderby'] = array(
+			'price-desc',
+			'popularity',
+			'date',
+		);
+
+		// phpcs:disable WordPress.DB.SlowDBQuery
+		$expected = array(
+			'orderby'  => 'price',
+			'order'    => 'DESC',
+			'meta_key' => '',
+		);
+		// phpcs:enable WordPress.DB.SlowDBQuery
+
+		$this->assertEquals( $expected, WC()->query->get_catalog_ordering_args() );
+
+		unset( $_GET['orderby'] );
+	}
+
+	/**
 	 * Test the get_main_query method.
 	 */
 	public function test_get_main_query() {
 		WC()->query->product_query( new WP_Query() );
 		$this->assertInstanceOf( 'WP_Query', WC_Query::get_main_query() );
+	}
+
+	/**
+	 * Test the get_main_query method with a custom query.
+	 */
+	public function test_get_catalog_ordering_args_get_query_var() {
+		set_query_var( 'orderby', array( 'priority', 'date' ) );
+
+		// phpcs:disable WordPress.DB.SlowDBQuery
+		$expected = array(
+			'orderby'  => 'priority',
+			'order'    => 'ASC',
+			'meta_key' => '',
+		);
+		// phpcs:enable WordPress.DB.SlowDBQuery
+
+		$this->assertEquals( $expected, WC()->query->get_catalog_ordering_args() );
 	}
 
 	/**
@@ -353,8 +395,17 @@ class WC_Tests_WC_Query extends WC_Unit_Test_Case {
 		// phpcs:enable WordPress.DB.SlowDBQuery
 
 		WC()->query->product_query( new WP_Query( $query_args ) );
-		$tax_queries = WC_Query::get_main_tax_query();
-		$this->assertContains( $tax_query, $tax_queries );
+		$tax_queries       = WC_Query::get_main_tax_query();
+		$matching_tax_data = current(
+			array_filter(
+				$tax_queries,
+				function ( $tax ) {
+					return 'product_tag' === $tax['taxonomy'];
+				}
+			)
+		);
+		$this->assertIsArray( $matching_tax_data );
+		$this->assertArraySubset( $tax_query, $matching_tax_data );
 	}
 
 	/**

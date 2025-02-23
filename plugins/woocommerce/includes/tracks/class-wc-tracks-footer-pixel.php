@@ -90,6 +90,9 @@ class WC_Tracks_Footer_Pixel {
 				continue;
 			}
 
+			// Add the Request Timestamp and no cache parameter just before the HTTP request.
+			$pixel = WC_Tracks_Client::add_request_timestamp_and_nocache( $pixel );
+
 			echo '<img style="position: fixed;" src="', esc_url( $pixel ), '" />';
 		}
 
@@ -109,5 +112,19 @@ class WC_Tracks_Footer_Pixel {
 		foreach ( $this->events as $event ) {
 			WC_Tracks_Client::record_event( $event );
 		}
+	}
+
+	/**
+	 * Get all events.
+	 */
+	public static function get_events() {
+		return self::instance()->events;
+	}
+
+	/**
+	 * Clear all queued events.
+	 */
+	public static function clear_events() {
+		self::instance()->events = array();
 	}
 }

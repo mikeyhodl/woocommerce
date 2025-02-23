@@ -6,6 +6,9 @@
  * @version  3.3.0
  */
 
+use Automattic\WooCommerce\Enums\ProductType;
+use Automattic\WooCommerce\Internal\CostOfGoodsSold\CostOfGoodsSoldController;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -40,6 +43,7 @@ class WC_Admin_List_Table_Products extends WC_Admin_List_Table {
 		add_filter( 'views_edit-product', array( $this, 'product_views' ) );
 		add_filter( 'get_search_query', array( $this, 'search_label' ) );
 		add_filter( 'posts_clauses', array( $this, 'posts_clauses' ), 10, 2 );
+		add_action( 'manage_product_posts_custom_column', array( $this, 'add_sample_product_badge' ), 9, 2 );
 	}
 
 	/**
@@ -124,7 +128,10 @@ class WC_Admin_List_Table_Products extends WC_Admin_List_Table {
 			$show_columns['is_in_stock'] = __( 'Stock', 'woocommerce' );
 		}
 
-		$show_columns['price']       = __( 'Price', 'woocommerce' );
+		$show_columns['price'] = __( 'Price', 'woocommerce' );
+		if ( wc_get_container()->get( CostOfGoodsSoldController::class )->feature_is_enabled() ) {
+			$show_columns['cogs_value'] = __( 'Cost', 'woocommerce' );
+		}
 		$show_columns['product_cat'] = __( 'Categories', 'woocommerce' );
 		$show_columns['product_tag'] = __( 'Tags', 'woocommerce' );
 		$show_columns['featured']    = '<span class="wc-featured parent-tips" data-tip="' . esc_attr__( 'Featured', 'woocommerce' ) . '">' . __( 'Featured', 'woocommerce' ) . '</span>';
@@ -175,6 +182,11 @@ class WC_Admin_List_Table_Products extends WC_Admin_List_Table {
 
 		get_inline_data( $post );
 
+		$cogs_value_html = wc_get_container()->get( CostOfGoodsSoldController::class )->feature_is_enabled() ?
+				'<div class="cogs_value">' . esc_html( $this->object->get_cogs_value() ?? '0' ) . '</div>' :
+				'';
+
+		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- the COGS value is already escaped.
 		/* Custom inline data for woocommerce. */
 		echo '
 			<div class="hidden" id="woocommerce_inline_' . absint( $this->object->get_id() ) . '">
@@ -197,9 +209,10 @@ class WC_Admin_List_Table_Products extends WC_Admin_List_Table {
 				<div class="tax_status">' . esc_html( $this->object->get_tax_status() ) . '</div>
 				<div class="tax_class">' . esc_html( $this->object->get_tax_class() ) . '</div>
 				<div class="backorders">' . esc_html( $this->object->get_backorders() ) . '</div>
-				<div class="low_stock_amount">' . esc_html( $this->object->get_low_stock_amount() ) . '</div>
-			</div>
-		';
+				<div class="low_stock_amount">' . esc_html( $this->object->get_low_stock_amount() ) . '</div>'
+				. $cogs_value_html .
+			'</div>';
+		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
 	/**
@@ -213,7 +226,16 @@ class WC_Admin_List_Table_Products extends WC_Admin_List_Table {
 	 * Render column: price.
 	 */
 	protected function render_price_column() {
-		echo $this->object->get_price_html() ? wp_kses_post( $this->object->get_price_html() ) : '<span class="na">&ndash;</span>';
+		$html = $this->object->get_price_html();
+		echo $html ? wp_kses_post( $html ) : '<span class="na">&ndash;</span>';
+	}
+
+	/**
+	 * Render column: cost.
+	 */
+	protected function render_cogs_value_column() {
+		$html = $this->object->get_cogs_value_html();
+		echo $html ? wp_kses_post( $html ) : '<span class="na">&ndash;</span>';
 	}
 
 	/**
@@ -358,7 +380,7 @@ class WC_Admin_List_Table_Products extends WC_Admin_List_Table {
 			$output .= selected( $value, $current_product_type, false );
 			$output .= '>' . esc_html( $label ) . '</option>';
 
-			if ( 'simple' === $value ) {
+			if ( ProductType::SIMPLE === $value ) {
 
 				$output .= '<option value="downloadable" ';
 				$output .= selected( 'downloadable', $current_product_type, false );
@@ -658,4 +680,19 @@ class WC_Admin_List_Table_Products extends WC_Admin_List_Table {
 		return $pieces;
 	}
 
+	/**
+	 * Add a sample product badge to the product list table.
+	 *
+	 * @param string $column_name Column name.
+	 * @param int    $post_id     Post ID.
+	 *
+	 * @since 8.8.0
+	 */
+	public function add_sample_product_badge( $column_name, $post_id ) {
+		$is_sample_product = 'product' === get_post_type( $post_id ) && get_post_meta( $post_id, '_headstart_post', true );
+
+		if ( $is_sample_product && 'name' === $column_name ) {
+			echo '<span class="sample-product-badge" style="margin-right: 6px;border-radius: 4px; background: #F6F7F7; padding: 4px; color: #3C434A;font-size: 12px;font-style: normal;font-weight: 400;line-height: 16px; height: 24px;">' . esc_html__( 'Sample', 'woocommerce' ) . '</span>';
+		}
+	}
 }

@@ -3,6 +3,11 @@
  * Admin View: Bulk Edit Products
  */
 
+use Automattic\WooCommerce\Internal\CostOfGoodsSold\CostOfGoodsSoldController;
+use Automattic\WooCommerce\Enums\CatalogVisibility;
+use Automattic\WooCommerce\Enums\ProductTaxStatus;
+use Automattic\WooCommerce\Utilities\I18nUtil;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly
 }
@@ -65,6 +70,33 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</label>
 		</div>
 
+		<?php if ( wc_get_container()->get( CostOfGoodsSoldController::class )->feature_is_enabled() ) : ?>
+			<div class="inline-edit-group">
+				<label class="alignleft">
+					<span class="title"><?php esc_html_e( 'Cost', 'woocommerce' ); ?></span>
+					<span class="input-text-wrap">
+						<select class="change_cogs_value change_to" name="change_cogs_value">
+							<?php
+							$options = array(
+								''  => __( '— No change —', 'woocommerce' ),
+								'1' => __( 'Change to:', 'woocommerce' ),
+							);
+							foreach ( $options as $key => $value ) {
+								echo '<option value="' . esc_attr( $key ) . '">' . esc_html( $value ) . '</option>';
+							}
+							?>
+						</select>
+					</span>
+				</label>
+				<label class="change-input">
+					<?php /* phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- the esc_attr is somehow not detected */ ?>
+					<?php /* translators: %s = cost value (formatted as currency) */ ?>
+					<input type="text" name="_cogs_value" class="text cogs_value" placeholder="<?php esc_attr( printf( __( 'Enter cost value (%s)', 'woocommerce' ), get_woocommerce_currency_symbol() ) ); ?>" value="" />
+					<?php /* phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped */ ?>
+				</label>
+			<div class="inline-edit-group">
+		<?php endif; ?>
+
 		<?php if ( wc_tax_enabled() ) : ?>
 			<label>
 				<span class="title"><?php _e( 'Tax status', 'woocommerce' ); ?></span>
@@ -72,10 +104,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<select class="tax_status" name="_tax_status">
 						<?php
 						$options = array(
-							''         => __( '— No change —', 'woocommerce' ),
-							'taxable'  => __( 'Taxable', 'woocommerce' ),
-							'shipping' => __( 'Shipping only', 'woocommerce' ),
-							'none'     => _x( 'None', 'Tax status', 'woocommerce' ),
+							''                         => __( '— No change —', 'woocommerce' ),
+							ProductTaxStatus::TAXABLE  => __( 'Taxable', 'woocommerce' ),
+							ProductTaxStatus::SHIPPING => __( 'Shipping only', 'woocommerce' ),
+							ProductTaxStatus::NONE     => _x( 'None', 'Tax status', 'woocommerce' ),
 						);
 						foreach ( $options as $key => $value ) {
 							echo '<option value="' . esc_attr( $key ) . '">' . esc_html( $value ) . '</option>';
@@ -123,15 +155,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 									''  => __( '— No change —', 'woocommerce' ),
 									'1' => __( 'Change to:', 'woocommerce' ),
 								);
-							foreach ( $options as $key => $value ) {
-								echo '<option value="' . esc_attr( $key ) . '">' . esc_html( $value ) . '</option>';
-							}
-							?>
+								foreach ( $options as $key => $value ) {
+									echo '<option value="' . esc_attr( $key ) . '">' . esc_html( $value ) . '</option>';
+								}
+								?>
 						</select>
 					</span>
 				</label>
 				<label class="change-input">
-					<input type="text" name="_weight" class="text weight" placeholder="<?php printf( esc_attr__( '%1$s (%2$s)', 'woocommerce' ), wc_format_localized_decimal( 0 ), get_option( 'woocommerce_weight_unit' ) ); ?>" value="">
+					<?php
+					$placeholder = sprintf(
+						/* translators: 1. Weight number; 2. Weight unit; E.g. 2 kg */
+						__( '%1$s (%2$s)', 'woocommerce' ),
+						wc_format_localized_decimal( 0 ),
+						I18nUtil::get_weight_unit_label( get_option( 'woocommerce_weight_unit', 'kg' ) )
+					);
+					?>
+					<input
+						type="text"
+						name="_weight"
+						class="text weight"
+						placeholder="<?php echo esc_attr( $placeholder ); ?>"
+						value=""
+					>
 				</label>
 			</div>
 		<?php endif; ?>
@@ -155,9 +201,33 @@ if ( ! defined( 'ABSPATH' ) ) {
 					</span>
 				</label>
 				<label class="change-input">
-					<input type="text" name="_length" class="text length" placeholder="<?php printf( esc_attr__( 'Length (%s)', 'woocommerce' ), get_option( 'woocommerce_dimension_unit' ) ); ?>" value="">
-					<input type="text" name="_width" class="text width" placeholder="<?php printf( esc_attr__( 'Width (%s)', 'woocommerce' ), get_option( 'woocommerce_dimension_unit' ) ); ?>" value="">
-					<input type="text" name="_height" class="text height" placeholder="<?php printf( esc_attr__( 'Height (%s)', 'woocommerce' ), get_option( 'woocommerce_dimension_unit' ) ); ?>" value="">
+					<?php
+					$dimension_unit_label = I18nUtil::get_dimensions_unit_label( get_option( 'woocommerce_dimension_unit', 'cm' ) );
+					?>
+					<input
+						type="text"
+						name="_length"
+						class="text length"
+						<?php /* translators: %s is dimension unit label */ ?>
+						placeholder="<?php printf( esc_attr__( 'Length (%s)', 'woocommerce' ), esc_html( $dimension_unit_label ) ); ?>"
+						value=""
+					>
+					<input
+						type="text"
+						name="_width"
+						class="text width"
+						<?php /* translators: %s is dimension unit label */ ?>
+						placeholder="<?php printf( esc_attr__( 'Width (%s)', 'woocommerce' ), esc_html( $dimension_unit_label ) ); ?>"
+						value=""
+					>
+					<input
+						type="text"
+						name="_height"
+						class="text height"
+						<?php /* translators: %s is dimension unit label */ ?>
+						placeholder="<?php printf( esc_attr__( 'Height (%s)', 'woocommerce' ), esc_html( $dimension_unit_label ) ); ?>"
+						value=""
+					>
 				</label>
 			</div>
 		<?php endif; ?>
@@ -183,11 +253,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<select class="visibility" name="_visibility">
 					<?php
 					$options = array(
-						''        => __( '— No change —', 'woocommerce' ),
-						'visible' => __( 'Catalog &amp; search', 'woocommerce' ),
-						'catalog' => __( 'Catalog', 'woocommerce' ),
-						'search'  => __( 'Search', 'woocommerce' ),
-						'hidden'  => __( 'Hidden', 'woocommerce' ),
+						''                         => __( '— No change —', 'woocommerce' ),
+						CatalogVisibility::VISIBLE => __( 'Catalog &amp; search', 'woocommerce' ),
+						CatalogVisibility::CATALOG => __( 'Catalog', 'woocommerce' ),
+						CatalogVisibility::SEARCH  => __( 'Search', 'woocommerce' ),
+						CatalogVisibility::HIDDEN  => __( 'Hidden', 'woocommerce' ),
 					);
 					foreach ( $options as $key => $value ) {
 						echo '<option value="' . esc_attr( $key ) . '">' . esc_html( $value ) . '</option>';

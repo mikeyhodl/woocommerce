@@ -1,0 +1,4 @@
+Significance: minor
+Type: fix
+
+Check if `orderby` is an array before using it as a key to avoid a fatal error.

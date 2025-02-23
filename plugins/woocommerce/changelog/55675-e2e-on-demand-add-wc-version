@@ -1,0 +1,4 @@
+Significance: patch
+Type: update
+
+Add an option to `on-demand` job to accept WC_VERSION

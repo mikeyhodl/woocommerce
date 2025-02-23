@@ -40,12 +40,28 @@ class MockableLegacyProxy extends \Automattic\WooCommerce\Proxies\LegacyProxy {
 	private $mocked_statics = array();
 
 	/**
+	 * The currently registered mocks for globals.
+	 *
+	 * @var array
+	 */
+	private $mocked_globals = array();
+
+	/**
+	 * The currently registered callback for the "exit" construct, or null if none has been registered.
+	 *
+	 * @var callable|null
+	 */
+	private $mocked_exit = null;
+
+	/**
 	 * Reset the instance to its initial state by removing all the mocks.
 	 */
 	public function reset() {
 		$this->mocked_classes   = array();
 		$this->mocked_functions = array();
 		$this->mocked_statics   = array();
+		$this->mocked_globals   = array();
+		$this->mocked_exit      = null;
 	}
 
 	/**
@@ -116,6 +132,32 @@ class MockableLegacyProxy extends \Automattic\WooCommerce\Proxies\LegacyProxy {
 	}
 
 	/**
+	 * Register the global mocks to use.
+	 *
+	 * @param array $mocks An associative array where keys are global names and values are the replacements for each global.
+	 *
+	 * @throws \Exception Invalid parameter.
+	 */
+	public function register_global_mocks( array $mocks ) {
+		foreach ( $mocks as $global_name => $mock ) {
+			if ( ! is_string( $global_name ) ) {
+				throw new \Exception( 'MockableLegacyProxy::register_global_mocks: $mocks must be an associative array of global_name => value.' );
+			}
+		}
+
+		$this->mocked_globals = array_merge( $this->mocked_globals, $mocks );
+	}
+
+	/**
+	 * Register a callback to be executed when the "exit" method is invoked.
+	 *
+	 * @param callable|null $mock The callback to be registered, or null to unregister it.
+	 */
+	public function register_exit_mock( ?callable $mock ) {
+		$this->mocked_exit = $mock;
+	}
+
+	/**
 	 * Call a user function. This should be used to execute any non-idempotent function, especially
 	 * those in the `includes` directory or provided by WordPress.
 	 *
@@ -180,5 +222,38 @@ class MockableLegacyProxy extends \Automattic\WooCommerce\Proxies\LegacyProxy {
 		}
 
 		return parent::get_instance_of( $class_name, ...$args );
+	}
+
+	/**
+	 * Gets the value of a given global.
+	 *
+	 * If a mock value has been defined for the requested global name, that value will be returned
+	 * instead of the actual global.
+	 *
+	 * @param string $global_name The name of the global to retrieve the value for.
+	 * @return mixed The value of the (possibly mocked) global.
+	 */
+	public function get_global( string $global_name ) {
+		if ( array_key_exists( $global_name, $this->mocked_globals ) ) {
+			return $this->mocked_globals[ $global_name ];
+		}
+
+		return parent::get_global( $global_name );
+	}
+
+	/**
+	 * Terminates execution of the script.
+	 *
+	 * If a mock callback has been defined for the exit construct, it will be executed instead.
+	 *
+	 * @param int|string $status An error code to be returned, or an error message to be shown.
+	 */
+	public function exit( $status = 0 ) {
+		if ( $this->mocked_exit ) {
+			( $this->mocked_exit )( $status );
+		} else {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			exit( $status );
+		}
 	}
 }

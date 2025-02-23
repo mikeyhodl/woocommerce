@@ -13,7 +13,7 @@ class WC_Cart_Test extends \WC_Unit_Test_Case {
 	/**
 	 * tearDown.
 	 */
-	public function tearDown() {
+	public function tearDown(): void {
 		parent::tearDown();
 
 		WC()->cart->empty_cart();
@@ -94,6 +94,101 @@ class WC_Cart_Test extends \WC_Unit_Test_Case {
 		WC()->cart->empty_cart();
 		WC()->customer->set_is_vat_exempt( false );
 		$variable_product->delete( true );
+	}
+
+	/**
+	 * @testdox should throw a notice to the cart if using an invalid product_id.
+	 */
+	public function test_add_variation_to_the_cart_invalid_product() {
+		WC()->cart->empty_cart();
+		WC()->session->set( 'wc_notices', null );
+
+		$single_product = WC_Helper_Product::create_simple_product();
+
+		// Add variation using parent id.
+		WC()->cart->add_to_cart(
+			-1,
+			1,
+			$single_product->get_id()
+		);
+		$notices = WC()->session->get( 'wc_notices', array() );
+
+		// Check for cart contents.
+		$this->assertCount( 0, WC()->cart->get_cart_contents() );
+		$this->assertEquals( 0, WC()->cart->get_cart_contents_count() );
+
+		$this->assertArrayHasKey( 'error', $notices );
+		$this->assertCount( 1, $notices['error'] );
+		$expected = sprintf( 'The selected product is invalid.' );
+		$this->assertEquals( $expected, $notices['error'][0]['notice'] );
+
+		// Reset cart.
+		WC()->cart->empty_cart();
+		WC()->customer->set_is_vat_exempt( false );
+	}
+
+	/**
+	 * @testdox variable product should not be added to the cart if variation_id=0.
+	 */
+	public function test_add_variation_to_the_cart_zero_variation_id() {
+		WC()->cart->empty_cart();
+		WC()->session->set( 'wc_notices', null );
+
+		$variable_product = WC_Helper_Product::create_variation_product();
+
+		// Add variable and variation_id=0.
+		WC()->cart->add_to_cart(
+			$variable_product->get_id(),
+			1,
+			0
+		);
+		$notices = WC()->session->get( 'wc_notices', array() );
+
+		// Check for cart contents.
+		$this->assertCount( 0, WC()->cart->get_cart_contents() );
+		$this->assertEquals( 0, WC()->cart->get_cart_contents_count() );
+
+		// Check that the notices contain an error message about the product option is not selected.
+		$this->assertArrayHasKey( 'error', $notices );
+		$this->assertCount( 1, $notices['error'] );
+		$expected = sprintf( sprintf( 'Please choose product options by visiting <a href="%1$s" title="%2$s">%2$s</a>.', esc_url( $variable_product->get_permalink() ), esc_html( $variable_product->get_name() ) ) );
+		$this->assertEquals( $expected, $notices['error'][0]['notice'] );
+
+		// Reset cart.
+		WC()->cart->empty_cart();
+		WC()->customer->set_is_vat_exempt( false );
+		$variable_product->delete( true );
+	}
+
+	/**
+	 * Test cloning cart holds no references in session
+	 */
+	public function test_cloning_cart_session() {
+		$product = WC_Helper_Product::create_simple_product();
+
+		// Initialize $cart1 and $cart2 as empty carts.
+		$cart1 = WC()->cart;
+		$cart1->empty_cart();
+		$cart2 = clone $cart1;
+
+		// Create a cart in session.
+		$cart1->add_to_cart( $product->get_id(), 1 );
+		$cart1->set_session();
+
+		// Empty the cart without clearing the session.
+		$cart1->set_cart_contents( array() );
+
+		// Both carts are empty at that point.
+		$this->assertTrue( $cart2->is_empty() );
+		$this->assertTrue( $cart1->is_empty() );
+
+		$cart2->get_cart_from_session();
+
+		// We retrieved $cart2 from the previously set session so it should not be empty.
+		$this->assertFalse( $cart2->is_empty() );
+
+		// We didn't touch $cart1 so it should still be empty.
+		$this->assertTrue( $cart1->is_empty() );
 	}
 
 	/**
@@ -187,6 +282,6 @@ class WC_Cart_Test extends \WC_Unit_Test_Case {
 
 		$this->assertArrayHasKey( 'error', $notices );
 		$this->assertCount( 1, $notices['error'] );
-		$this->assertRegExp( '/Please choose product options by visiting/', $notices['error'][0]['notice'] );
+		$this->assertMatchesRegularExpression( '/Please choose product options by visiting/', $notices['error'][0]['notice'] );
 	}
 }

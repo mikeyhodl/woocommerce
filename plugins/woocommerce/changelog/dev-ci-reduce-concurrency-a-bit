@@ -1,0 +1,4 @@
+Significance: patch
+Type: dev
+
+CI: reduce concurrency in CI-workflow to allow more parallel PRs checks.

@@ -6,6 +6,8 @@
  * @version     2.1.0
  */
 
+use Automattic\WooCommerce\Enums\OrderStatus;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
@@ -67,7 +69,7 @@ class WC_Report_Sales_By_Date extends WC_Admin_Report {
 				'query_type'   => 'get_results',
 				'filter_range' => true,
 				'order_types'  => wc_get_order_types( 'order-count' ),
-				'order_status' => array( 'completed', 'processing', 'on-hold', 'refunded' ),
+				'order_status' => array( OrderStatus::COMPLETED, OrderStatus::PROCESSING, OrderStatus::ON_HOLD, OrderStatus::REFUNDED ),
 			)
 		);
 
@@ -103,7 +105,7 @@ class WC_Report_Sales_By_Date extends WC_Admin_Report {
 				'query_type'   => 'get_results',
 				'filter_range' => true,
 				'order_types'  => wc_get_order_types( 'order-count' ),
-				'order_status' => array( 'completed', 'processing', 'on-hold', 'refunded' ),
+				'order_status' => array( OrderStatus::COMPLETED, OrderStatus::PROCESSING, OrderStatus::ON_HOLD, OrderStatus::REFUNDED ),
 			)
 		);
 
@@ -135,7 +137,7 @@ class WC_Report_Sales_By_Date extends WC_Admin_Report {
 				'query_type'   => 'get_results',
 				'filter_range' => true,
 				'order_types'  => wc_get_order_types( 'order-count' ),
-				'order_status' => array( 'completed', 'processing', 'on-hold', 'refunded' ),
+				'order_status' => array( OrderStatus::COMPLETED, OrderStatus::PROCESSING, OrderStatus::ON_HOLD, OrderStatus::REFUNDED ),
 			)
 		);
 
@@ -163,7 +165,7 @@ class WC_Report_Sales_By_Date extends WC_Admin_Report {
 					'query_type'   => 'get_var',
 					'filter_range' => true,
 					'order_types'  => wc_get_order_types( 'order-count' ),
-					'order_status' => array( 'refunded' ),
+					'order_status' => array( OrderStatus::REFUNDED ),
 				)
 			)
 		);
@@ -205,7 +207,7 @@ class WC_Report_Sales_By_Date extends WC_Admin_Report {
 				'query_type'   => 'get_results',
 				'filter_range' => true,
 				'order_types'  => wc_get_order_types( 'sales-reports' ),
-				'order_status' => array( 'completed', 'processing', 'on-hold', 'refunded' ),
+				'order_status' => array( OrderStatus::COMPLETED, OrderStatus::PROCESSING, OrderStatus::ON_HOLD, OrderStatus::REFUNDED ),
 			)
 		);
 
@@ -246,7 +248,7 @@ class WC_Report_Sales_By_Date extends WC_Admin_Report {
 				'query_type'          => 'get_results',
 				'filter_range'        => true,
 				'order_status'        => false,
-				'parent_order_status' => array( 'refunded' ),
+				'parent_order_status' => array( OrderStatus::REFUNDED ),
 			)
 		);
 
@@ -321,12 +323,12 @@ class WC_Report_Sales_By_Date extends WC_Admin_Report {
 				'query_type'          => 'get_results',
 				'filter_range'        => true,
 				'order_status'        => false,
-				'parent_order_status' => array( 'completed', 'processing', 'on-hold' ),
+				'parent_order_status' => array( OrderStatus::COMPLETED, OrderStatus::PROCESSING, OrderStatus::ON_HOLD ),
 			)
 		);
 
 		foreach ( $this->report_data->partial_refunds as $key => $order ) {
-			$this->report_data->partial_refunds[ $key ]->net_refund = $order->total_refund - ( $order->total_shipping + $order->total_tax + $order->total_shipping_tax );
+			$this->report_data->partial_refunds[ $key ]->net_refund = (float) $order->total_refund - ( (float) $order->total_shipping + (float) $order->total_tax + (float) $order->total_shipping_tax );
 		}
 
 		/**
@@ -391,7 +393,7 @@ class WC_Report_Sales_By_Date extends WC_Admin_Report {
 				'query_type'          => 'get_results',
 				'filter_range'        => true,
 				'order_status'        => false,
-				'parent_order_status' => array( 'completed', 'processing', 'on-hold', 'refunded' ),
+				'parent_order_status' => array( OrderStatus::COMPLETED, OrderStatus::PROCESSING, OrderStatus::ON_HOLD, OrderStatus::REFUNDED ),
 			)
 		);
 
@@ -411,7 +413,7 @@ class WC_Report_Sales_By_Date extends WC_Admin_Report {
 			$this->report_data->total_shipping_tax_refunded += floatval( $value->total_shipping_tax < 0 ? $value->total_shipping_tax * -1 : $value->total_shipping_tax );
 			$this->report_data->total_shipping_refunded     += floatval( $value->total_shipping < 0 ? $value->total_shipping * -1 : $value->total_shipping );
 
-			// Only applies to parial.
+			// Only applies to partial.
 			if ( isset( $value->order_item_count ) ) {
 				$this->report_data->refunded_order_items += floatval( $value->order_item_count < 0 ? $value->order_item_count * -1 : $value->order_item_count );
 			}
@@ -422,7 +424,7 @@ class WC_Report_Sales_By_Date extends WC_Admin_Report {
 		$this->report_data->total_shipping     = wc_format_decimal( array_sum( wp_list_pluck( $this->report_data->orders, 'total_shipping' ) ) - $this->report_data->total_shipping_refunded, 2 );
 		$this->report_data->total_shipping_tax = wc_format_decimal( array_sum( wp_list_pluck( $this->report_data->orders, 'total_shipping_tax' ) ) - $this->report_data->total_shipping_tax_refunded, 2 );
 
-		// Total the refunds and sales amounts. Sales subract refunds. Note - total_sales also includes shipping costs.
+		// Total the refunds and sales amounts. Sales subtract refunds. Note - total_sales also includes shipping costs.
 		$this->report_data->total_sales = wc_format_decimal( array_sum( wp_list_pluck( $this->report_data->orders, 'total_sales' ) ) - $this->report_data->total_refunds, 2 );
 		$this->report_data->net_sales   = wc_format_decimal( $this->report_data->total_sales - $this->report_data->total_shipping - max( 0, $this->report_data->total_tax ) - max( 0, $this->report_data->total_shipping_tax ), 2 );
 

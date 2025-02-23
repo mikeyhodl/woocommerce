@@ -73,8 +73,8 @@ class WC_Settings_Shipping_Test extends WC_Settings_Unit_Test_Case {
 
 		$expected = array(
 			''            => 'Shipping zones',
-			'options'     => 'Shipping options',
-			'classes'     => 'Shipping classes',
+			'options'     => 'Shipping settings',
+			'classes'     => 'Classes',
 			'method_1_id' => 'Method_1_id',
 			'method_2_id' => 'method_2_title',
 		);
@@ -82,18 +82,13 @@ class WC_Settings_Shipping_Test extends WC_Settings_Unit_Test_Case {
 	}
 
 	/**
-	 * @testDox 'get_settings' returns proper default settings, also 'options' is an alias for the default section.
-	 *
-	 * @testWith [""]
-	 *           ["options"]
-	 *
-	 * @param string $section_name The name of the section to get the settings for.
+	 * @testDox get_settings('options') should return all settings for the 'options' section.
 	 */
-	public function test_get_default_and_options_settings_returns_all_settings( $section_name ) {
+	public function test_get_options_settings_returns_all_settings() {
 		$sut = new WC_Settings_Shipping();
 
-		$settings               = $sut->get_settings_for_section( $section_name );
-		$settings_ids_and_types = $this->get_ids_and_types( $settings );
+		$settings              = $sut->get_settings_for_section( 'options' );
+		$setting_ids_and_types = $this->get_ids_and_types( $settings );
 
 		$expected = array(
 			'shipping_options'                           => array( 'title', 'sectionend' ),
@@ -103,7 +98,7 @@ class WC_Settings_Shipping_Test extends WC_Settings_Unit_Test_Case {
 			'woocommerce_shipping_debug_mode'            => 'checkbox',
 		);
 
-		$this->assertEquals( $expected, $settings_ids_and_types );
+		$this->assertEquals( $expected, $setting_ids_and_types );
 	}
 
 	/**

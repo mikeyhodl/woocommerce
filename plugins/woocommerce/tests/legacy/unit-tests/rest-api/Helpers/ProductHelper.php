@@ -7,13 +7,15 @@ namespace Automattic\WooCommerce\RestApi\UnitTests\Helpers;
 
 defined( 'ABSPATH' ) || exit;
 
-use \WC_Product_Simple;
-use \WC_Product_External;
-use \WC_Product_Grouped;
-use \WC_Product_Variable;
-use \WC_Product_Variation;
-use \WC_Product_Attribute;
-use \WC_Cache_Helper;
+use Automattic\WooCommerce\Enums\ProductTaxStatus;
+use WC_Product_Simple;
+use WC_Product_External;
+use WC_Product_Grouped;
+use WC_Product_Variable;
+use WC_Product_Variation;
+use WC_Product_Attribute;
+use WC_Cache_Helper;
+use Automattic\WooCommerce\Enums\ProductStockStatus;
 
 /**
  * Class ProductHelper.
@@ -21,6 +23,14 @@ use \WC_Cache_Helper;
  * This helper class should ONLY be used for unit tests!.
  */
 class ProductHelper {
+
+	/**
+	 * Counter to insert unique SKU for concurrent tests.
+	 * The starting value ensures no conflicts between existing generators.
+	 *
+	 * @var int $sku_counter
+	 */
+	private static $sku_counter = 100000;
 
 	/**
 	 * Delete a product.
@@ -48,15 +58,17 @@ class ProductHelper {
 				'name'          => 'Dummy Product',
 				'regular_price' => 10,
 				'price'         => 10,
-				'sku'           => 'DUMMY SKU',
+				'sku'           => 'DUMMY SKU' . self::$sku_counter,
 				'manage_stock'  => false,
-				'tax_status'    => 'taxable',
+				'tax_status'    => ProductTaxStatus::TAXABLE,
 				'downloadable'  => false,
 				'virtual'       => false,
-				'stock_status'  => 'instock',
+				'stock_status'  => ProductStockStatus::IN_STOCK,
 				'weight'        => '1.1',
 			)
 		);
+
+		++self::$sku_counter;
 
 		if ( $save ) {
 			$product->save();
@@ -79,7 +91,7 @@ class ProductHelper {
 				'name'          => 'Dummy External Product',
 				'regular_price' => 10,
 				'sku'           => 'DUMMY EXTERNAL SKU',
-				'product_url'   => 'http://woocommerce.com',
+				'product_url'   => 'https://woocommerce.com',
 				'button_text'   => 'Buy external product',
 			)
 		);

@@ -7,8 +7,9 @@ namespace Automattic\WooCommerce\RestApi\UnitTests\Helpers;
 
 defined( 'ABSPATH' ) || exit;
 
-use \WC_Cache_Helper;
-use \WC;
+use Automattic\WooCommerce\Enums\ProductTaxStatus;
+use WC_Cache_Helper;
+use WC;
 
 /**
  * Class ShippingHelper.
@@ -26,7 +27,7 @@ class ShippingHelper {
 			'title'        => 'Flat rate',
 			'availability' => 'all',
 			'countries'    => '',
-			'tax_status'   => 'taxable',
+			'tax_status'   => ProductTaxStatus::TAXABLE,
 			'cost'         => '10',
 		);
 
